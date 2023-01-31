@@ -76,7 +76,7 @@ IP-camera has been built around BL7252 MCU. MCU SDK could be found at github
 
 <img src="https://raw.githubusercontent.com/intx82/a9-v720/master/img/4.jpg" width=480px/>
 
-All photos in <img> folder
+All photos in img folder
 
 ## Where to buy this camera
 
