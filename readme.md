@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/intx82/a9-v720/master/img/0.jpg" width=480px/>
 
-**This app has been tested only with camera version 202212011602 and only which uses Chinese V720 APP. See pictures of camera PCB below**
+**This app has been tested only with camera version 202212011602 and only which use Chinese V720 APP. See pictures of camera PCB below**
 
 ## How to use script and short brief
 
