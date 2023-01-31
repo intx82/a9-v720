@@ -1,6 +1,6 @@
 # A9 V720 Naxclow Camera 
 
-![Camera itself](https://raw.githubusercontent.com/intx82/a9-v720/master/img/0.jpg)
+![Camera itself](https://raw.githubusercontent.com/intx82/a9-v720/master/img/0.jpg =480x)
 
 **This app has been tested only with camera version 202212011602 and only which uses Chinese V720 APP. See pictures of camera PCB below**
 
@@ -74,7 +74,7 @@ Full logs could be found in docs dir. <docs/uart.log>
 
 IP-camera has been built around BL7252 MCU. MCU SDK could be found at github
 
-![PCB photo](https://raw.githubusercontent.com/intx82/a9-v720/master/img/4.jpg)
+![PCB photo](https://raw.githubusercontent.com/intx82/a9-v720/master/img/4.jpg =480x)
 
 All photos in <img> folder
 
