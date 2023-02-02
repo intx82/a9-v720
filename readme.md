@@ -82,7 +82,7 @@ Full logs could be found in docs dir. <docs/uart.log>
 
 ## Camera photos
 
-IP-camera has been built around BL7252 MCU. MCU SDK could be found at github
+IP-camera has been built around BL7252 MCU. MCU SDK could be found at github as bdk_rtt (https://github.com/YangAlex66/bdk_rtt) (original link https://github.com/bekencorp/bdk_rtt seems to be dead now)
 
 <img src="https://raw.githubusercontent.com/intx82/a9-v720/master/img/4.jpg" width=480px/>
 
