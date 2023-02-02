@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import socket
+from conn_tcp import conn_tcp
 import time
 import argparse
 from datetime import datetime
@@ -10,6 +10,8 @@ from tqdm.auto import tqdm
 # _wifi_easyjoin: ssid:NAXCLOW bssid:00:00:00:00:00:00 key:34974033A
 
 from v720_ap import v720_ap
+
+from a9_live import show_live
 
 HOST = "192.168.169.1"
 PORT = 6123
@@ -34,7 +36,7 @@ def download(cam, file, date, hour, min, total_sz = 0):
     def _on_rcv(id,sz):
         _pb.update(sz)
 
-    ret = cam.start_stream(date, hour, min, _on_rcv)
+    ret = cam.get_file(date, hour, min, _on_rcv)
     if ret[1] is not None:
         with open(file, 'wb') as avi:
             avi.write(ret[1])
@@ -56,24 +58,24 @@ if __name__ == '__main__':
     arg_gr = parser.add_mutually_exclusive_group(required=True)
     arg_gr.add_argument('-d', '--download', type=str,
                         help='Download file with provided datetime. Format: [date]-[hour]-[miute], example: 20230131-22-29')
-    arg_gr.add_argument('-l', '--list', action="store_true",
+    arg_gr.add_argument('-f', '--filelist', action="store_true",
                         help='List available files (datetimes)')
+    arg_gr.add_argument('-l', '--live', action="store_true",
+                        help='Show live stream')
     parser.add_argument('-o', '--output', type=str,
-                        help='Output filename', default='out.avi')
+                        help='Output filename', default=None)
     parser.add_argument('-c', '--host', type=str,
                         help='Host and port (192.168.169.1:6123)', default=f"{HOST}:{PORT}")
 
     args = parser.parse_args()
+    host = args.host.split(':', 2)
+    port = PORT if len(host) == 1 else int(host[1])
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(30)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-        host = args.host.split(':', 2)
-        port = PORT if len(host) == 1 else int(host[1])
-        sock.connect((host[0], port))
+    with conn_tcp(host[0], port) as sock:
         cam = v720_ap(sock)
+        cam.init_live_motion()
         if cam.sdcard_status():
-            if args.list:
+            if args.filelist:
                 print_filelist(cam)
             elif args.download:
                 dt = parse_dt(args.download)
@@ -82,8 +84,14 @@ if __name__ == '__main__':
                     print(f'File {dt[0]}-{dt[1]}-{dt[2]} not found')
                     exit(1)
 
+                output = args.output
+                if output is None:
+                    output = f"{file_info['fileName']}.avi"
+
                 print('Found file @', dt[0], dt[1], dt[2], ':',
                       file_info['fileName'], ' with size:', file_info['fileSize'])
                 download(cam, args.output, dt[0], dt[1], dt[2], file_info['fileSize'])
+            elif args.live:
+                show_live(cam, args.output)
         else:
             print('Camera doesn\'t have a SD Card')

@@ -1,3 +1,5 @@
 **/__pycache__/**
 *.avi
 *.log
+*.wav
+*.mjpg

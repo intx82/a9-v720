@@ -9,8 +9,6 @@ from prot_udp import prot_udp
 from prot_udp import tests as prot_udp_tests
 
 
-
-
 @dataclass
 class prot_json_udp(prot_udp):
     DEFAULT_DEV_TARGET = "deadbeef"
@@ -28,10 +26,10 @@ class prot_json_udp(prot_udp):
     @staticmethod
     def resp(income: bytes) -> prot_json_udp:
         r = prot_udp.resp(income)
-        if r is not None and r.cmd == cmd_udp.P2P_UDP_CMD_JSON:
+        if r is not None and (r.cmd == cmd_udp.P2P_UDP_CMD_JSON or r.cmd == cmd_udp.P2P_UDP_CMD_DIRECT_MOTION):
             try:
                 return prot_json_udp(**asdict(r),
-                                json=loads(r.payload.decode('ascii')))
+                                     json=loads(r.payload.decode('ascii')))
             except (UnicodeDecodeError, decoder.JSONDecodeError):
                 print(f'---Exception with: {r.payload}')
 
@@ -72,9 +70,10 @@ def tests():
 
     _payload[4] = cmd_udp.P2P_UDP_CMD_XML
     p = prot_json_udp.resp(_payload)
-    print('1. ',_payload, '->', p)
+    print('1. ', _payload, '->', p)
     assert(p is None)
     print('1. PASS')
+
 
 if __name__ == '__main__':
     tests()

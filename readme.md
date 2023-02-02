@@ -1,8 +1,8 @@
 # A9 V720 Naxclow Camera 
 
-![Camera itself](http://github.com/intx82/a9-v720/img/0.jpg)
+<img src="https://raw.githubusercontent.com/intx82/a9-v720/master/img/0.jpg" width=480px/>
 
-**This app has been tested only with camera version 202212011602 and only which uses Chinese V720 APP. See pictures of camera PCB below**
+**This app has been tested only with camera version 202212011602 and only which use Chinese V720 APP. See pictures of camera PCB below**
 
 ## How to use script and short brief
 
@@ -20,7 +20,7 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
 
 - List of all recorded videos inside camera:
     ```
-    python3 src/a9_naxclow.py -l
+    python3 src/a9_naxclow.py -f
     ```
 
     Camera filenames have datetime format with full date/hour/minute information. 
@@ -38,10 +38,21 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
     Where syntax are:
         src/a9_naxclow.py -d [date-hour-minute] -o [output-file]
     
-    Date/Hour/Minute could be taken from first command (ie `-l` )
+    Date/Hour/Minute could be taken from first command (ie `-f` )
     if -o arg is not provided, the script will save the file as `out.avi`
 
     While downloading file from camera, recording is not going.
+
+- Live video stream:
+    ```
+    python3 src/a9_naxclow.py -l -o live.avi
+    ```
+
+    To write captured stream into file use also arg `-o` as it was in previous example.
+
+    There are no audio inside live record, but it could be succesfull captured and saved, check show_live() function in a9_live.py file
+
+    Audio stream has g711-alaw wav format
 
 ## Network options
 
@@ -49,7 +60,6 @@ After camera has been attached, camera provide an IP via DHCP in 192.168.169.* n
 
 Camera have mixed binary/json/xml protocol, where most of all commands sends in JSON. Check <src/prot_udp.py> (which works over TCP) <src/prot_json_udp.py>, etc
 
-**In AP mode there are no live video broadcasting** (or i didn't found it)
 
 ## Original source
 
@@ -74,9 +84,9 @@ Full logs could be found in docs dir. <docs/uart.log>
 
 IP-camera has been built around BL7252 MCU. MCU SDK could be found at github
 
-![PCB photo](http://github.com/intx82/a9-v720/img/4.jpg)
+<img src="https://raw.githubusercontent.com/intx82/a9-v720/master/img/4.jpg" width=480px/>
 
-All photos in <img> folder
+All photos in img folder
 
 ## Where to buy this camera
 
