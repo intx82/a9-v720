@@ -74,24 +74,23 @@ if __name__ == '__main__':
     with conn_tcp(host[0], port) as sock:
         cam = v720_ap(sock)
         cam.init_live_motion()
-        if cam.sdcard_status():
-            if args.filelist:
-                print_filelist(cam)
-            elif args.download:
-                dt = parse_dt(args.download)
-                file_info = cam.avi_file_info(dt[0], dt[1], dt[2])
-                if file_info is None or file_info['fileSize'] == -1:
-                    print(f'File {dt[0]}-{dt[1]}-{dt[2]} not found')
-                    exit(1)
+        if args.filelist and cam.sdcard_status():
+            print_filelist(cam)
+        elif args.download and cam.sdcard_status():
+            dt = parse_dt(args.download)
+            file_info = cam.avi_file_info(dt[0], dt[1], dt[2])
+            if file_info is None or file_info['fileSize'] == -1:
+                print(f'File {dt[0]}-{dt[1]}-{dt[2]} not found')
+                exit(1)
 
-                output = args.output
-                if output is None:
-                    output = f"{file_info['fileName']}.avi"
+            output = args.output
+            if output is None:
+                output = f"{file_info['fileName']}.avi"
 
-                print('Found file @', dt[0], dt[1], dt[2], ':',
-                      file_info['fileName'], ' with size:', file_info['fileSize'])
-                download(cam, args.output, dt[0], dt[1], dt[2], file_info['fileSize'])
-            elif args.live:
-                show_live(cam, args.output)
+            print('Found file @', dt[0], dt[1], dt[2], ':',
+                    file_info['fileName'], ' with size:', file_info['fileSize'])
+            download(cam, args.output, dt[0], dt[1], dt[2], file_info['fileSize'])
+        elif args.live:
+            show_live(cam, args.output)
         else:
             print('Camera doesn\'t have a SD Card')
