@@ -6,37 +6,38 @@ import io
 import cmd_udp
 import time
 from datetime import datetime
-
-from conn_tcp import conn_tcp
+from threading import Timer, Lock
 from PIL import Image
 
+from conn_tcp import conn_tcp
 from v720_ap import v720_ap
-
 
 HOST = "192.168.169.1"
 PORT = 6123
 WAV_HDR = b'RIFF\x8a\xdc\x01\x00WAVEfmt \x12\x00\x00\x00\x06\x00\x01\x00@\x1f\x00\x00@\x1f\x00\x00\x01\x00\x08\x00\x00\x00fact\x04\x00\x00\x006\xdc\x01\x00LIST\x1a\x00\x00\x00INFOISFT\x0e\x00\x00\x00Lavf58.45.100\x00data6\xdc\x01\x00'
 
 frame_time = time.time()
+last_img = None
+writer_lock = Lock()
 
-def cv2_show_img(_video, frame: bytearray):
-    global frame_time
+def cv2_show_img(frame: bytearray):
+    global frame_time, last_img, writer_lock
     t = time.time()
     fps = round(1 / (t - frame_time), 2)
+    
+    writer_lock.acquire()
+    last_img = numpy.array(Image.open(io.BytesIO(frame)))
+    cv2.putText(last_img, str(datetime.now()), (5, 15),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 255, 0), 1, cv2.LINE_AA)
+    cv2.putText(last_img, f'FPS: {fps}', (5, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 255, 0), 1, cv2.LINE_AA)
+    writer_lock.release()
+    cv2.imshow('Frame', last_img)
 
-    img = numpy.array(Image.open(io.BytesIO(frame)))
-    cv2.putText(img, str(datetime.now()), (5, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.75, (100, 255, 0), 2, cv2.LINE_AA)
-    cv2.putText(img, f'FPS: {fps}', (5, 60),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.75, (100, 255, 0), 2, cv2.LINE_AA)
-
-    cv2.imshow('Frame', img)
     frame_time = t
-    if _video is not None:
-        _video.write(img)
 
 
-def show_live(cam, videofile = None, audiofile = None):
+def show_live(cam: v720_ap, videofile: str = None, audiofile: str = None):
     cv2.startWindowThread()
     cv2.namedWindow('Frame')
 
@@ -44,8 +45,21 @@ def show_live(cam, videofile = None, audiofile = None):
     _video = None
     if videofile is not None:
         _video = cv2.VideoWriter(videofile, cv2.VideoWriter_fourcc(
-            'M', 'J', 'P', 'G'), 5, (640, 480))
-    
+            'M', 'J', 'P', 'G'), 10, (640, 480))
+
+        def _save_video():
+            global writer_lock, last_img
+            writer_lock.acquire()
+            if last_img is not None:
+                _video.write(last_img)
+            writer_lock.release()
+            
+            _v_writer_tmr = Timer(0.1, _save_video)
+            _v_writer_tmr.setDaemon(True)
+            _v_writer_tmr.start()
+
+        _save_video()
+
     _audio = None
     if audiofile is not None:
         _audio = open(audiofile, 'wt')
@@ -54,7 +68,7 @@ def show_live(cam, videofile = None, audiofile = None):
     try:
         sync = False
         frame = bytearray()
-    
+
         def on_rcv(cmd, data: bytearray):
             nonlocal sync
             if cmd == cmd_udp.P2P_UDP_CMD_JPEG:
@@ -67,7 +81,7 @@ def show_live(cam, videofile = None, audiofile = None):
                     f = data.find(b'\xff\xd9')
                     if f != -1:
                         frame.extend(data[:f+2])
-                        cv2_show_img(_video, frame)
+                        cv2_show_img(frame)
                         frame.clear()
                         sync = False
                     else:
@@ -86,8 +100,7 @@ def show_live(cam, videofile = None, audiofile = None):
 
 
 if __name__ == '__main__':
-
     with conn_tcp(HOST, PORT) as sock:
         cam = v720_ap(sock)
         cam.init_live_motion()
-        show_live(cam)
+        show_live(cam, 'live.avi')

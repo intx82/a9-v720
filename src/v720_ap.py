@@ -60,9 +60,12 @@ class v720_ap:
         return prot_ap.resp(self._req(prot_ap(content=prot).req()))
 
     def init_direct_motion(self):
-        r = prot_json_udp.resp(self._req(prot_udp(cmd=cmd_udp.P2P_UDP_CMD_DIRECT_MOTION).req()))
-        self.dev_id = r.json['devId']
-        return r
+        r = self._req(prot_udp(cmd=cmd_udp.P2P_UDP_CMD_DIRECT_MOTION).req())
+        if r is not None:
+            r = prot_json_udp.resp(r)
+            self.dev_id = r.json['devId']
+            return r
+        return None
 
     def init_live_motion(self):
         ret = self._req(prot_udp(cmd=cmd_udp.P2P_UDP_CMD_LIVE_MOTION).req())
