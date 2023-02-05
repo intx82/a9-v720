@@ -66,10 +66,10 @@ if __name__ == '__main__':
                         help='Show live stream')
     parser.add_argument('-o', '--output', type=str,
                         help='Output filename', default=None)
-
     parser.add_argument('-i', '--irled', action='store_true',
                         help='Enable IR led(lens)', default=False)
-
+    parser.add_argument('-r', '--flip', action='store_true',
+                        help='Flip camera', default=False)
     parser.add_argument('-c', '--host', type=str,
                         help='Host and port (192.168.169.1:6123)', default=f"{HOST}:{PORT}")
 
@@ -81,6 +81,7 @@ if __name__ == '__main__':
         cam = v720_ap(sock)
         cam.init_live_motion()
         cam.ir_led(args.irled)
+        cam.flip(args.flip)
 
         if args.filelist and cam.sdcard_status():
             print_filelist(cam)

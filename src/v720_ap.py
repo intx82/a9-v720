@@ -108,15 +108,15 @@ class v720_ap:
         self._socket.sendall(prot_udp(cmd=cmd_udp.P2P_UDP_CMD_HEARTBEAT).req())
         return len(self._socket._rcv()) > 0
 
-    def flip(self, val: int):
+    def flip(self, val: bool):
         '''
         Flip video
-        :param val: Flip value, 0 -> normal, 4-> Flipped
+        :param val: Flip value, 
         '''
         return self._ap_req({
             'code': cmd_udp.CODE_FORWARD_DEV_VIDEO_FLIP,
             'devTarget': prot_json_udp.DEFAULT_DEV_TARGET,
-            'mirrorFlip': val
+            'mirrorFlip': 4 if val else 0 #0 -> normal, 4-> Flipped
         })
 
     def sdcard_status(self) -> bool:
