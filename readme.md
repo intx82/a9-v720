@@ -23,6 +23,8 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
     python3 src/a9_naxclow.py -f
     ```
 
+    Arg `-f` could be replaced `--filelist`
+
     Camera filenames have datetime format with full date/hour/minute information. 
     
     For example: `202301312016.avi`. 
@@ -37,7 +39,9 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
 
     Where syntax are:
         src/a9_naxclow.py -d [date-hour-minute] -o [output-file]
-    
+
+    Arg `-d` could be replaced `--download` and `-o` to `--output`
+
     Date/Hour/Minute could be taken from first command (ie `-f` )
     if -o arg is not provided, the script will save the file as `out.avi`
 
@@ -45,10 +49,12 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
 
 - Live video stream:
     ```
-    python3 src/a9_naxclow.py -l -o live.avi
+    python3 src/a9_naxclow.py -l -o live.avi -r -i
     ```
 
     To write captured stream into file use also arg `-o` as it was in previous example.
+
+    To enable IR view use arg `-i` or `--irled` and to flip camera use arg `-r` or `--flip`
 
     There are no audio inside live record, but it could be succesfull captured and saved, check show_live() function in a9_live.py file
 

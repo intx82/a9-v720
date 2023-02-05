@@ -61,7 +61,7 @@ if __name__ == '__main__':
     arg_gr.add_argument('-d', '--download', type=str,
                         help='Download file with provided datetime. Format: [date]-[hour]-[miute], example: 20230131-22-29')
     arg_gr.add_argument('-f', '--filelist', action="store_true",
-                        help='List available files (datetimes)')
+                        help='List available files (recorded date\'s and time\'s)')
     arg_gr.add_argument('-l', '--live', action="store_true",
                         help='Show live stream')
     parser.add_argument('-o', '--output', type=str,
