@@ -31,9 +31,11 @@ def print_filelist(cam):
                     f'\t\t-{file[0]:02d}:{file[1]:02d}: Could not get file info')
 
 
-def download(cam, file, date, hour, min, total_sz = 0):
-    _pb = tqdm(range(0, total_sz), unit='B', unit_scale=True, unit_divisor=1024)
-    def _on_rcv(id,sz):
+def download(cam, file, date, hour, min, total_sz=0):
+    _pb = tqdm(range(0, total_sz), unit='B',
+               unit_scale=True, unit_divisor=1024)
+
+    def _on_rcv(id, sz):
         _pb.update(sz)
 
     ret = cam.get_file(date, hour, min, _on_rcv)
@@ -64,6 +66,10 @@ if __name__ == '__main__':
                         help='Show live stream')
     parser.add_argument('-o', '--output', type=str,
                         help='Output filename', default=None)
+
+    parser.add_argument('-i', '--irled', action='store_true',
+                        help='Enable IR led(lens)', default=False)
+
     parser.add_argument('-c', '--host', type=str,
                         help='Host and port (192.168.169.1:6123)', default=f"{HOST}:{PORT}")
 
@@ -74,6 +80,8 @@ if __name__ == '__main__':
     with conn_tcp(host[0], port) as sock:
         cam = v720_ap(sock)
         cam.init_live_motion()
+        cam.ir_led(args.irled)
+
         if args.filelist and cam.sdcard_status():
             print_filelist(cam)
         elif args.download and cam.sdcard_status():
@@ -88,8 +96,9 @@ if __name__ == '__main__':
                 output = f"{file_info['fileName']}.avi"
 
             print('Found file @', dt[0], dt[1], dt[2], ':',
-                    file_info['fileName'], ' with size:', file_info['fileSize'])
-            download(cam, args.output, dt[0], dt[1], dt[2], file_info['fileSize'])
+                  file_info['fileName'], ' with size:', file_info['fileSize'])
+            download(cam, args.output, dt[0],
+                     dt[1], dt[2], file_info['fileSize'])
         elif args.live:
             show_live(cam, args.output)
         else:

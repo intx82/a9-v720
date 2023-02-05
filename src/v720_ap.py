@@ -67,6 +67,7 @@ class v720_ap:
             return r
         return None
 
+
     def init_live_motion(self):
         ret = self._req(prot_udp(cmd=cmd_udp.P2P_UDP_CMD_LIVE_MOTION).req())
         if len(ret) == 0:
@@ -129,6 +130,14 @@ class v720_ap:
         return self._ap_req({
             'code': cmd_udp.CODE_FORWARD_DEV_WIFI_SCAN,
             'devTarget': prot_json_udp.DEFAULT_DEV_TARGET
+        })
+
+
+    def ir_led(self, ena: bool):
+        return self._ap_req({
+            'code': cmd_udp.CODE_FORWARD_DEV_IR_LED,
+            'devTarget': prot_json_udp.DEFAULT_DEV_TARGET,
+            'IrLed': 1 if ena else 0
         })
 
     def sdcard_datelist(self) -> list:
