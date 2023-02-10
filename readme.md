@@ -70,8 +70,9 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
     python3 src/a9_naxclow.py --set-wifi SSID PWD
     ```
     Where: 
-        -- SSID - yours WIFI AP ssid (ie name)
-        -- PWD - password
+        
+        - SSID - yours WIFI AP ssid (ie name)
+        - PWD - password
 
     for example, connect to `mifi` access point with password `mifimifi`
     
