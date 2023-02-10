@@ -37,6 +37,12 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
     python3 src/a9_naxclow.py -d 20230131-20-16 -o out.avi
     ```
 
+    or 
+
+    ```
+    python3 src/a9_naxclow.py -d 202301312016 -o out.avi
+    ```
+
     Where syntax are:
         src/a9_naxclow.py -d [date-hour-minute] -o [output-file]
 

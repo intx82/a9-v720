@@ -47,12 +47,33 @@ def download(cam, file, date, hour, min, total_sz=0):
 
 
 def parse_dt(s: str):
+    if s is None:
+        raise AttributeError('Empty date')
     s = s.split('-', 3)
-    return (
-        int(s[0]),
-        int(s[1]) if len(s) > 1 else datetime.now().hour,
-        int(s[2]) if len(s) > 2 else datetime.now().minute - 2
-    )
+    if len(s) == 0:
+        raise AttributeError('Wrong date')
+
+    if len(s) == 1 and len(s[0]) == len("202302101314"):
+        return (int(s[0][:8]),
+                int(s[0][8:10]),
+                int(s[0][10:]))
+    else:
+        return (
+            int(s[0]),
+            int(s[1]) if len(s) > 1 else datetime.now().hour,
+            int(s[2]) if len(s) > 2 else datetime.now().minute - 2
+        )
+
+def parse_dt_test():
+    ret = parse_dt('202302101319')
+    assert(ret[0] == 20230210)
+    assert(ret[1] == 13)
+    assert(ret[2] == 19)
+
+    ret = parse_dt('20230210-13-19')
+    assert(ret[0] == 20230210)
+    assert(ret[1] == 13)
+    assert(ret[2] == 19)
 
 
 if __name__ == '__main__':
