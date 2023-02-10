@@ -65,6 +65,21 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
     There are no audio inside live record, but it could be succesfull captured and saved, check show_live() function in a9_live.py file
 
     Audio stream has g711-alaw wav format
+- Connect to the existed WIFI AP:
+    ```
+    python3 src/a9_naxclow.py --set-wifi SSID PWD
+    ```
+    Where: 
+        -- SSID - yours WIFI AP ssid (ie name)
+        -- PWD - password
+
+    for example, connect to `mifi` access point with password `mifimifi`
+    
+    ```
+    python3 src/a9_naxclow.py --set-wifi mifi mifimifi
+    ```
+
+    PWD (password) should be at least 8 chars length, but not more 36
 
 ## Network options
 

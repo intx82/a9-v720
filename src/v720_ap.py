@@ -140,6 +140,27 @@ class v720_ap:
             'IrLed': 1 if ena else 0
         })
 
+    def set_ap_pwd(self, pwd):
+        return self._ap_req({
+            'code': cmd_udp.CODE_FORWARD_DEV_SET_AP_PWD,
+            'devTarget': prot_json_udp.DEFAULT_DEV_TARGET,
+            'setApPwd': pwd
+        })
+
+    def set_wifi(self, name, pwd):
+        return self._ap_req({
+            'code': cmd_udp.CODE_FORWARD_DEV_SET_WIFI,
+            'devTarget': prot_json_udp.DEFAULT_DEV_TARGET,
+            's': name,
+            'p': pwd
+        })
+
+    def reboot(self):
+        return self._ap_req({
+            'code': cmd_udp.CODE_FORWARD_DEV_REBOOT,
+            'devTarget': prot_json_udp.DEFAULT_DEV_TARGET,
+        })
+
     def sdcard_datelist(self) -> list:
         r = self._json_req({
             'code': cmd_udp.CODE_SDCARD_REQ_DATE_LIST,

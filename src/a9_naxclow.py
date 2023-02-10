@@ -85,6 +85,10 @@ if __name__ == '__main__':
                         help='List available files (recorded date\'s and time\'s)')
     arg_gr.add_argument('-l', '--live', action="store_true",
                         help='Show live stream')
+    # arg_gr.add_argument('--set-ap-pwd', type=str,
+    #                     help='Set AP password')
+    arg_gr.add_argument('--set-wifi', nargs=2,
+                        help='Try to connect to specified AP (--set-wifi AP PWD)')
     parser.add_argument('-o', '--output', type=str,
                         help='Output filename', default=None)
     parser.add_argument('-i', '--irled', action='store_true',
@@ -101,8 +105,6 @@ if __name__ == '__main__':
     with conn_tcp(host[0], port) as sock:
         cam = v720_ap(sock)
         cam.init_live_motion()
-        cam.ir_led(args.irled)
-        cam.flip(args.flip)
 
         if args.filelist and cam.sdcard_status():
             print_filelist(cam)
@@ -122,6 +124,23 @@ if __name__ == '__main__':
             download(cam, args.output, dt[0],
                      dt[1], dt[2], file_info['fileSize'])
         elif args.live:
+            cam.ir_led(args.irled)
+            cam.flip(args.flip)
             show_live(cam, args.output)
+        # elif args.set_ap_pwd:
+        #     print(f'Set AP pwd to: {args.set_ap_pwd}')
+        #     if len(args.set_ap_pwd) < 8 or len(args.set_ap_pwd) > 32:
+        #         print('AP password couldn\'t be lessa than 8 chars or more than 36')
+        #         exit(1)
+
+        #     print(cam.set_ap_pwd(args.set_ap_pwd))
+        elif args.set_wifi:
+            print(f'Try to connect: SSID: {args.set_wifi[0]}, pwd: {args.set_wifi[1]}')
+            if cam.set_wifi(*args.set_wifi) is not None:
+                print('Set successful, rebooting camera')
+                cam.reboot()
+            else:
+                print('Camera not respond')
+
         else:
             print('Camera doesn\'t have a SD Card')
