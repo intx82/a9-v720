@@ -70,7 +70,7 @@ class conn_tcp(conn):
         if self._socket is None:
             return None
         try:
-            self._socket.sendall(data)
+            self._snd(data)
             return self._rcv()
         except (socket.timeout, IOError):
             if err < 5:
@@ -79,3 +79,6 @@ class conn_tcp(conn):
                 time.sleep((err * err) * 0.1)
                 return self._req(data, err)
             return None
+
+    def _snd(self, data) -> None:
+        self._socket.sendall(data)

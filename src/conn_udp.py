@@ -35,10 +35,13 @@ class conn_udp(conn):
             return None
 
         return self._socket.recvfrom(1024)
-        
+    
+    def _snd(self, data) -> None:
+        self._socket.sendto(data, (self._host, self._port))
+
     def _req(self, data, err=0) -> bytes:
         if self._socket is None:
             return None
 
-        self._socket.sendto(data, (self._host, self._port))
+        self._snd(data)
         return self._rcv()

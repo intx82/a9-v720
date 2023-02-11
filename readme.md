@@ -10,7 +10,7 @@ To use this script, the camera should have inserted SD card. All data are reads 
 
 Then, turn on the camera and attach to their Wifi-AP. AP name should(could) starts from prefix `Nax` (as i suppose it means name of manufacturer: Naxclow) For example, i have: `Nax_210000211234`
 
-Camera should give IP in range 192.168.169.100 / 255.255.255.0. After, you can try to connect with this script. The camera's Wi-Fi is very poor, and i am able to have a good connection only after connecting UART tool, which connects the camera's GND to my laptop.
+Camera should give IP in range 192.168.169.100 / 255.255.255.0. After, you can try to connect with this script. 
 
 By default, camera has IP 192.168.169.1 and didn't have any Web-page to configure it. Camera can be configured only via mobile-application.
 
@@ -81,6 +81,8 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
     ```
 
     PWD (password) should be at least 8 chars length, but not more 36
+
+    **After connecting to the AP, camera lost possibility to use this script. Camera will try to connect to Chinesse server (v720.naxclow.com) and try to work via it. For more details read <a href="fake_server.md">fake_server.md</a>**
 
 ## Network options
 

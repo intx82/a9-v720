@@ -19,3 +19,6 @@ class conn:
 
     def _req(self, data, err=0) -> bytes:
         return None
+
+    def _snd(self, data) -> None:
+        pass

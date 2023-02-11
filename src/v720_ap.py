@@ -156,10 +156,10 @@ class v720_ap:
         })
 
     def reboot(self):
-        return self._ap_req({
+        self._socket._snd(prot_ap(content={
             'code': cmd_udp.CODE_FORWARD_DEV_REBOOT,
             'devTarget': prot_json_udp.DEFAULT_DEV_TARGET,
-        })
+        }).req())
 
     def sdcard_datelist(self) -> list:
         r = self._json_req({
