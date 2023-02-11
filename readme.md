@@ -2,7 +2,9 @@
 
 <img src="https://raw.githubusercontent.com/intx82/a9-v720/master/img/0.jpg" width=480px/>
 
-**This app has been tested only with camera version 202212011602 and only which use Chinese V720 APP. See pictures of camera PCB below**
+**This app has been tested only with camera version 202212011602 and only which use Chinese V720 APP and only in AP mode. See pictures of camera PCB below**
+
+Topic on 'home-assistant' forum: <a href="https://community.home-assistant.io/t/popular-a9-mini-wi-fi-camera-the-ha-challenge">https://community.home-assistant.io/t/popular-a9-mini-wi-fi-camera-the-ha-challenge</a>
 
 ## How to use script and short brief
 
