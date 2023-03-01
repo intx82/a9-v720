@@ -41,6 +41,32 @@ curl -v -X POST "http://v720.naxclow.com/app/api/ApiSysDevicesBatch/registerDevi
 {"code":200,"message":"操作成功","data":"0800c00128F8"} 
 ```
 
+1.5 After bootstrap message camera might ask an confirmation from server. 
+
+```Log
+ curl -v -X POST 'http://v720.naxclow.com/app/api/ApiSysDevicesBatch/confirm?devicesCode=0800c0020ADC&random=NOPQRS&token=025d085049'
+*   Trying 8.218.137.74:80...
+* Connected to v720.naxclow.com (8.218.137.74) port 80 (#0)
+> POST /app/api/ApiSysDevicesBatch/confirm?devicesCode=0800c0020ADC&random=NOPQRS&token=025d085049 HTTP/1.1
+> Host: v720.naxclow.com
+> User-Agent: curl/7.74.0
+> Accept: */*
+>
+* Mark bundle as not supporting multiuse
+< HTTP/1.1 200
+< Server: nginx/1.18.0 (Ubuntu)
+< Date: Wed, 01 Mar 2023 12:32:03 GMT
+< Content-Type: application/json
+< Content-Length: 49
+< Connection: keep-alive
+< Vary: Origin
+< Vary: Access-Control-Request-Method
+< Vary: Access-Control-Request-Headers
+<
+* Connection #0 to host v720.naxclow.com left intact
+{"code":200,"message":"操作成功","data":null}
+```
+
 After that device AP will have name `0800c00128F8`. `操作成功` - translates as 'OK'. This will happens only once, after this step camera will never do this again.
 
 
@@ -176,3 +202,6 @@ To test command, use `mosquitto_pub` and `mosquitto_sub`
 | CODE_FORWARD_DEV_AP_MODE       | { code: 208}                             | Switch to AP mode                                                                                                    |
 | CODE_FORWARD_DEV_LED_EI        | { code: 220, ledEI: *, lightGrade: *}    | ledEI control 0/1 (in code ledEI == lightGrade) but not working                                                      |
 | CODE_FORWARD_DEV_MOTOR_STATE   | { code: 212, pirSysMode: *}              | ?                                                                                                                    |
+
+7. Camera establish a connection via NAT
+
