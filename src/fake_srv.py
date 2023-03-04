@@ -16,12 +16,15 @@ FSM_GET_STATUS = 'get_status'
 FSM_SET_NAT = 'set_nat'
 FSM_ONLINE = 'online'
 FSM_SET_TIMESTAMP = 'timestamp'
+FSM_RETRANS = 'retrans'
+FSM_BASEINFO = 'baseinfo'
+FSM_CAPLIVE = 'caplive'
+FSM_POSTCAP = 'postcap'
 
 
 def fsm_heartbeat(conn: socket, _: bytes):
     print('[TCP] Heartbeat, sending response')
     conn.sendall(prot_udp(cmd=cmd_udp.P2P_UDP_CMD_HEARTBEAT).req())
-
 
 def fsm_initial(conn: socket, _payload: bytes):
     if _payload is None:
@@ -49,24 +52,6 @@ def fsm_set_nat(conn: socket, _: bytes):
     }
     print(f'[TCP] Send status req: {resp}')
     conn.sendall(prot_json_udp(json=resp).req())
-
-
-def fsm_online_req(conn: socket, _):
-    req = {'code': cmd_udp.CODE_2S_ONLINE,
-           'devTarget': FSM['data']['dev_tg'],
-           'devToken': FSM['data']['dev_tkn'],
-           'status': 1}
-
-    print(f'[TCP] Send online-req req: {req}')
-    conn.sendall(prot_json_udp(json=req).req())
-
-
-def fsm_timestamp(conn: socket, _):
-    req = {'code': cmd_udp.CODE_C2D_TIMESTAMP,
-           'timerStamp': '1676971368690'}
-
-    print(f'[TCP] Send timestamp req: {req}')
-    conn.sendall(prot_json_udp(json=req).req())
 
 
 def fsm_get_status(conn: socket, to):
@@ -103,34 +88,53 @@ def fsm_probe_req(conn: socket, to):
     conn.sendto(prot_json_udp(json=req).req(), to)
 
 
-def fsm_udp_timestamp(conn: socket, to):
-    req = {'code': cmd_udp.CODE_C2D_TIMESTAMP,
-           'timerStamp': '1676971368690'}
-
-    print(f'[UDP] Send timestamp req: {req}')
-    conn.sendto(prot_json_udp(json=req).req(), to)
-
-
-def fsm_udp_retrans(conn: socket, to):
+def fsm_retrans(conn: socket, _):
     req = {'code': cmd_udp.CODE_CMD_FORWARD,
            'target':  FSM['data']['cli_tg'],
            'content': {
                'code': cmd_udp.CODE_RETRANSMISSION
            }}
 
-    print(f'[UDP] Send baseinfo req: {req}')
-    conn.sendto(prot_json_udp(json=req).req(), to)
+    print(f'[TCP] Send retransmission req: {req}')
+    conn.sendall(prot_json_udp(json=req).req())
+
+
+def fsm_caplive(conn: socket, _):
+    req = {'code': cmd_udp.CODE_CMD_FORWARD,
+           'target': FSM['data']['cli_tg'],
+           'content': {
+               'code': cmd_udp.CODE_FORWARD_OPEN_A_OPEN_V
+           }}
+
+    print(f'[TCP] Send caplive req: {req}')
+    conn.sendall(prot_json_udp(json=req).req())
+
+def fsm_postcap(conn: socket, _):
+    FSM['data']['connected'] = True
+
+def fsm_baseinfo(conn: socket, _):
+    req = {'code': cmd_udp.CODE_CMD_FORWARD,
+           'target':  FSM['data']['cli_tg'],
+           'content': {
+               'unixTimer': int(datetime.timestamp(datetime.now())),
+               'code': cmd_udp.CODE_FORWARD_DEV_BASE_INFO
+           }}
+
+    print(f'[TCP] Send baseinfo req: {req}')
+    conn.sendall(prot_json_udp(json=req).req())
 
 
 FSM = {
     'states': {
-        FSM_NONE: [[None, None], None, FSM_NONE],
-        FSM_HEARBEAT: [[100, None], fsm_heartbeat, FSM_NONE],
-        FSM_INITIAL: [[0, 100], fsm_initial, FSM_SET_NAT],
-        FSM_SET_NAT: [[None, None], fsm_set_nat, FSM_NONE],
-        FSM_GET_STATUS: [[None, None], fsm_get_status, FSM_NONE],
-        FSM_ONLINE: [[None, None], fsm_online_req, FSM_NONE],
-        FSM_SET_TIMESTAMP: [[None, None], fsm_timestamp, FSM_NONE],
+        FSM_NONE: [[None, None, None], None, FSM_NONE],
+        FSM_HEARBEAT: [[100, None, None], fsm_heartbeat, FSM_NONE],
+        FSM_INITIAL: [[0, 100, None], fsm_initial, FSM_SET_NAT],
+        FSM_SET_NAT: [[None, None, None], fsm_set_nat, FSM_NONE],
+        FSM_GET_STATUS: [[None, None, None], fsm_get_status, FSM_RETRANS],
+        FSM_RETRANS: [[None, None, None], fsm_retrans, FSM_BASEINFO],
+        FSM_BASEINFO: [[None, None, None], fsm_baseinfo, FSM_NONE],
+        FSM_CAPLIVE: [[0, 301, 4], fsm_caplive, None],
+        FSM_CAPLIVE: [[0, 301, 3], fsm_postcap, FSM_NONE],
     },
     'step': FSM_NONE,
     'data': {
@@ -138,8 +142,21 @@ FSM = {
         'dev_tg': None,
         'cli_tg': '00112233445566778899aabbccddeeff',
         'cli_tkn': '55ABfb77',
+        'connected': False
     }
 }
+
+
+def fsm_udp_timestamp(conn: socket, to):
+    req = {'code': cmd_udp.CODE_C2D_TIMESTAMP,
+           'timeStamp': f'{int(datetime.timestamp(datetime.now())) * 1000}'}
+
+    print(f'[UDP] Send timestamp req: {req}')
+    conn.sendto(prot_json_udp(json=req).req(), to)
+
+
+def udp_ping(conn: socket, to):
+    conn.sendto(prot_udp(cmd=cmd_udp.P2P_UDP_CMD_PING).req(), to)
 
 
 class S(BaseHTTPRequestHandler):
@@ -195,10 +212,19 @@ def tcp_thread(arg):
                                 print(
                                     f'[TCP] JSON recv: [{len(_payload)}]: {_pkt}')
                                 if exp_cmd[1] == _pkt.json['code']:
-                                    cb(conn, _payload)
-                                    FSM['step'] = next_step
-                                    print('Next step @ rcv:', FSM['step'])
-                                    break
+                                    if _pkt.json['code'] == 301:
+                                        _pkt = prot_ap.resp(_payload)
+                                        if _pkt.content['code'] == exp_cmd[2]:
+                                            cb(conn, _payload)
+                                            FSM['step'] = next_step
+                                            print('Next step @ rcv:',
+                                                  FSM['step'])
+                                            break
+                                    else:
+                                        cb(conn, _payload)
+                                        FSM['step'] = next_step
+                                        print('Next step @ rcv:', FSM['step'])
+                                        break
 
                             else:
                                 print(
@@ -223,15 +249,13 @@ def tcp_thread(arg):
         exit(1)
 
 
-send_online = False
-
-
 def srv_udp_thread(arg):
     global send_online
     _socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     _socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     _socket.bind(('10.42.0.1', 6123))
     rmt = None
+    probe = True
     while True:
         try:
             _socket.settimeout(1.0)
@@ -254,56 +278,57 @@ def srv_udp_thread(arg):
                 print(f'[UDP-SRV] JSON recv: [{len(_payload)}]: {_pkt}')
                 if _pkt.json['code'] == cmd_udp.CODE_C2S_UDP_REQ:
                     fsm_udp_req(_socket, _to)
+                elif _pkt.json['code'] == cmd_udp.CODE_D2C_PROBE_RSP:
+                    if probe:
+                        fsm_probe_req(_socket, _to)
+                        probe = False
+                    else:
+                        FSM['step'] = FSM_GET_STATUS
+
         except socket.timeout:
             pass
 
-        if send_online:
-            _to = rmt
-            #fsm_udp_timestamp(_socket, _to)
-            #_socket.sendto(prot_udp(cmd=cmd_udp.P2P_UDP_CMD_HEARTBEAT).req(), _to)
-            send_online = False
 
+# def cl_udp_thread(arg):
+#     global send_online
+#     probe = 2
 
-def cl_udp_thread(arg):
-    global send_online
-    probe = 2
+#     _socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#     _socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+#     _socket.bind(('10.42.0.1', 53221))
+#     while True:
+#         _payload, _to = _socket.recvfrom(1024)
+#         if not _payload or len(_payload) == 0:
+#             break
 
-    _socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    _socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    _socket.bind(('10.42.0.1', 53221))
-    while True:
-        _payload, _to = _socket.recvfrom(1024)
-        if not _payload or len(_payload) == 0:
-            break
+#         _pkt = prot_udp.resp(_payload)
 
-        _pkt = prot_udp.resp(_payload)
+#         if _pkt.cmd is None:
+#             continue
 
-        if _pkt.cmd is None:
-            continue
+#         _pkt = prot_udp.resp(_payload)
+#         if _pkt.cmd == 0:
+#             _pkt = prot_json_udp.resp(_payload)
+#             print(f'[UDP-CLI] JSON recv: [{len(_payload)}]: {_pkt}')
 
-        _pkt = prot_udp.resp(_payload)
-        if _pkt.cmd == 0:
-            _pkt = prot_json_udp.resp(_payload)
-            print(f'[UDP-CLI] JSON recv: [{len(_payload)}]: {_pkt}')
+#             if _pkt.json['code'] == cmd_udp.CODE_D2C_PROBE_RSP:
+#                 print(f'[UDP-CLI] JSON recv: [{len(_payload)}]: {_pkt}')
+#                 if probe:
+#                     fsm_probe_req(_socket, _to)
+#                     probe -= 1
+#                 else:
+#                     fsm_udp_retrans(_socket, _to)
+#                     # fsm_udp_timestamp(_socket, _to)
+#                     # _socket.sendto(prot_udp(cmd=cmd_udp.P2P_UDP_CMD_HEARTBEAT).req(), _to)
+#                     send_online = True
+#                     # FSM['step'] = FSM_GET_STATUS
 
-            if _pkt.json['code'] == cmd_udp.CODE_D2C_PROBE_RSP:
-                print(f'[UDP-CLI] JSON recv: [{len(_payload)}]: {_pkt}')
-                if probe:
-                    fsm_probe_req(_socket, _to)
-                    probe -= 1
-                else:
-                    fsm_udp_retrans(_socket, _to)
-                    # fsm_udp_timestamp(_socket, _to)
-                    # _socket.sendto(prot_udp(cmd=cmd_udp.P2P_UDP_CMD_HEARTBEAT).req(), _to)
-                    send_online = True
-                    # FSM['step'] = FSM_GET_STATUS
-
-        elif _pkt.cmd == cmd_udp.P2P_UDP_CMD_HEARTBEAT:
-            print('[UDP] Heartbeat, sending response')
-            _socket.sendto(
-                prot_udp(cmd=cmd_udp.P2P_UDP_CMD_HEARTBEAT).req(), _to)
-        else:
-            print(f'[UDP] Recv [{len(_payload)}]: {_pkt.cmd}')
+#         elif _pkt.cmd == cmd_udp.P2P_UDP_CMD_HEARTBEAT:
+#             print('[UDP] Heartbeat, sending response')
+#             _socket.sendto(
+#                 prot_udp(cmd=cmd_udp.P2P_UDP_CMD_HEARTBEAT).req(), _to)
+#         else:
+#             print(f'[UDP] Recv [{len(_payload)}]: {_pkt.cmd}')
 
 
 def start():
@@ -314,9 +339,9 @@ def start():
     tu.setDaemon(True)
     tu.start()
 
-    tu2 = threading.Thread(target=cl_udp_thread, args=(1,))
-    tu2.setDaemon(True)
-    tu2.start()
+    # tu2 = threading.Thread(target=cl_udp_thread, args=(1,))
+    # tu2.setDaemon(True)
+    # tu2.start()
 
     with HTTPServer(("", HTTP_PORT), S) as httpd:
         httpd.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
