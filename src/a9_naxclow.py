@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from conn_tcp import conn_tcp
+from netcl_tcp import netcl_tcp
 import time
 import argparse
 from datetime import datetime
@@ -102,7 +102,7 @@ if __name__ == '__main__':
     host = args.host.split(':', 2)
     port = PORT if len(host) == 1 else int(host[1])
 
-    with conn_tcp(host[0], port) as sock:
+    with netcl_tcp(host[0], port) as sock:
         cam = v720_ap(sock)
         cam.init_live_motion()
 

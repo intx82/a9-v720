@@ -3,7 +3,7 @@ from socket import socket, timeout
 from datetime import datetime
 
 import cmd_udp
-from conn import conn
+from netcl import netcl
 from prot_json_udp import prot_json_udp
 from prot_xml_udp import prot_xml_udp
 from prot_ap import prot_ap
@@ -11,16 +11,16 @@ from prot_udp import prot_udp
 
 
 class v720_ap:
-    def __init__(self, socket: conn) -> None:
+    def __init__(self, socket: netcl) -> None:
         self._socket = socket
         self.dev_id = None
         self.forward_id = None
 
     def _rcv(self):
-        return self._socket._rcv()
+        return self._socket.recv()
 
     def _req(self, data) -> bytes:
-        return self._socket._req(data)
+        return self._socket.request(data)
 
     def _rcv_video_frame(self, on_pkg_recv: callable) -> None:
         heartbeat_cnt = 0
@@ -106,7 +106,7 @@ class v720_ap:
 
     def ping(self) -> bool:
         self._socket.sendall(prot_udp(cmd=cmd_udp.P2P_UDP_CMD_HEARTBEAT).req())
-        return len(self._socket._rcv()) > 0
+        return len(self._socket.recv()) > 0
 
     def flip(self, val: bool):
         '''
@@ -156,7 +156,7 @@ class v720_ap:
         })
 
     def reboot(self):
-        self._socket._snd(prot_ap(content={
+        self._socket.send(prot_ap(content={
             'code': cmd_udp.CODE_FORWARD_DEV_REBOOT,
             'devTarget': prot_json_udp.DEFAULT_DEV_TARGET,
         }).req())
@@ -193,7 +193,7 @@ class v720_ap:
         })
 
         if r is not None and 'status' in r.json and r.json['status'] == 200:
-            xml = prot_xml_udp.resp(self._socket._rcv())
+            xml = prot_xml_udp.resp(self._socket.recv())
 
             if xml is not None and "video" in xml.xml and "catalogue" in xml.xml['video']:
                 cat = xml.xml['video']['catalogue']
