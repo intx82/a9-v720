@@ -72,13 +72,13 @@ class netsrv_udp(netsrv):
                 time.sleep(0.01)
 
             ret = self._rcv_data.get()
-            self.dbg(f'recv: {ret[0].hex()}')
+            self.dbg(f'Recv: {ret[0].hex() if len(ret[0]) < 64 else f"{ret[0][:64].hex()}..."}')
             return ret[0]
         return None
 
     def send(self, data: bytes) -> None:
         if self._forked:
-            self.dbg(f'sending: {data.hex()}')
+            self.dbg(f'Send: {data.hex() if len(data) < 64 else f"{data[:64].hex()}..."}')
             self._socket.sendto(data, (self._host, self._port))
 
     def request(self, data, err=0) -> bytes:

@@ -330,6 +330,35 @@ Next step @ rcv: -
 }
 ```
 
-Streaming will stops when TCP got's a Heartbeet, to continue it server via UDP channel should send `code 605 (P2P_UDP_CMD_RETRANSMISSION_CONFIRM)` packet
-for example initial will be like: `040000005d02000030303030303030300000000000000000` (ie only with 4 zero bytes payload), but next one should contains a number of shown frames.
 
+### 9. Frames fragmentation
+
+There are three type of frames - 1 (P2P_UDP_CMD_JPEG) / 4 (P2P_UDP_CMD_G711) / 7 (P2P_UDP_CMD_AVI). Type of frame is set in CMD field of tha package. 
+Jpeg frame could be fragmented (because one JPG frame have size ~15kb, which is more than MTU). To fragment it every package include MSG_FLAG value, where:
+
+    * MSG_FLAG = 250 - Start of JPEG frame
+    * MSG_FLAG = 251 - Continuation of JPEG frame
+    * MSG_FLAG = 252 - End of JPEG frame
+
+the last 4 bytes of last JPEG frame contains size of full frame. 
+
+Audio data is not fragmented and looks more like G711-ALAW audio stream 
+
+Every next sent frame should be repeated with `code 605 (P2P_UDP_CMD_RETRANSMISSION_CONFIRM)` which contains already received package_id's in a list. To achieve 10 fps this command should be retranmistted every 100ms. 
+
+```log
+2023-03-06 20:04:05,450  [  DEBUG] [V720-STA] Request (UDP): CMD: 1, len: 1004 (1004), MSG_Flag: 250, pkg_id: 2802, deal_fl: 0, fwd-id: b'\x00\x00\x00\x00\x00\x00\x00\x00' Payload: ffd8ffe000104a46494600010100028001e00000ffc000110801e00280030121...
+2023-03-06 20:04:05,450  [   INFO] [V720-STA] Receive H264 frame
+2023-03-06 20:04:05,450  [  DEBUG] [UDP-SRV 10.42.0.28:43258] Recv: ec0300000100fb000000000000000000f30a0000d00491befea071db352834015faf34bc8e940075381cfa521eb400bebed4649e307340083d3341e940054673...
+2023-03-06 20:04:05,450  [  DEBUG] [V720-STA] Request (UDP): CMD: 1, len: 1004 (1004), MSG_Flag: 251, pkg_id: 2803, deal_fl: 0, fwd-id: b'\x00\x00\x00\x00\x00\x00\x00\x00' Payload: d00491befea071db352834015faf34bc8e940075381cfa521eb400bebed4649e...
+... package body
+2023-03-06 20:04:05,475  [  DEBUG] [UDP-SRV 10.42.0.28:43258] Recv: ec0300000100fb0000000000000000000a0b0000d28003ed49d7af3ed400873c00093e829fe59cf4c8fa500382ede314a00cf3c500293cd213c500682e1506d1...
+2023-03-06 20:04:05,475  [  DEBUG] [V720-STA] Request (UDP): CMD: 1, len: 1004 (1004), MSG_Flag: 251, pkg_id: 2826, deal_fl: 0, fwd-id: b'\x00\x00\x00\x00\x00\x00\x00\x00' Payload: d28003ed49d7af3ed400873c00093e829fe59cf4c8fa500382ede314a00cf3c5...
+2023-03-06 20:04:05,475  [   INFO] [V720-STA] Receive H264 frame
+2023-03-06 20:04:05,475  [  DEBUG] [UDP-SRV 10.42.0.28:43258] Recv: a80200000100fc0000000000000000000b0b0000e30bc0a004c53b193c0a00090a0e693ef0c8ce2801728b81c963da9a72fd4e1470157b50028c018029a58034...
+2023-03-06 20:04:05,475  [  DEBUG] [V720-STA] Request (UDP): CMD: 1, len: 680 (680), MSG_Flag: 252, pkg_id: 2827, deal_fl: 0, fwd-id: b'\x00\x00\x00\x00\x00\x00\x00\x00' Payload: e30bc0a004c53b193c0a00090a0e693ef0c8ce2801728b81c963da9a72fd4e14...
+2023-03-06 20:04:05,475  [   INFO] [V720-STA] Receive H264 frame
+2023-03-06 20:04:05,475  [   INFO] [V720-STA] Receive H264 frame sz: (25775 <> 25776)
+2023-03-06 20:04:05,517  [  DEBUG] [V720-STA] Send empty P2P_UDP_CMD_RETRANSMISSION_CONFIRM
+2023-03-06 20:04:05,517  [  DEBUG] [UDP-SRV 10.42.0.28:43258] Send: 680000005d020000303030303030303000000000f20a0000f30a0000f40a0000f50a0000f60a0000f70a0000f80a0000f90a0000fa0a0000fb0a0000fc0a0000...
+```

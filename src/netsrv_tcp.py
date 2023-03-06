@@ -79,7 +79,7 @@ class netsrv_tcp(netcl):
                 self.is_closed = True
                 self.close()
 
-            self.dbg(f'Recv: {data.hex()}')
+            self.dbg(f'Recv: {data.hex() if len(data) < 64 else f"{data[:64].hex()}..."}')
             return data
         
         self.err('recieving from not forked connection')
@@ -107,6 +107,7 @@ class netsrv_tcp(netcl):
                 return
             
             if not self.is_closed:
+                self.dbg(f'Send: {data.hex() if len(data) < 64 else f"{data[:64].hex()}..."}')
                 self._conn.sendall(data)
         else:
             self.err('sending from not forked connection')
