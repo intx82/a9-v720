@@ -222,7 +222,7 @@ mosquitto_sub -t '#' -h 'v720.p2p.naxclow.com' -v | ts [%.s]
 
 ### 6. Camera establish a connection via NAT
 
-To establish a connection via NAT server sends a message with a `code 11` (CODE_S2D_NAT_REQ). 
+To establish a connection via NAT, the server sends a message with a `code 11` (CODE_S2D_NAT_REQ). 
 
 ```
 {'code': 11, 'cliTarget': '00112233445566778899aabbccddeeff', 'cliToken': '55ABfb77', 'cliIp': '10.42.0.1', 'cliPort': 53221, 'cliNatIp': '10.42.0.1', 'cliNatPort': 41234}
@@ -232,7 +232,7 @@ If put in code 11 message wrong IP, nothing bad happens, but opens a door to mak
 
 After camera will try to establish connection via UDP with at least one of proposed ports (53221 / 41234), otherwise will try to use the same port/IP as TCP but on UDP. This UDP channel later will be used as data-channel to transmit a MJPG/G711 data.
 
-To establish UDP connection camera sends an `code 20 (CODE_C2S_UDP_REQ)` message and waits back for message with code 21
+To establish a UDP connection, the camera sends an `code 20 (CODE_C2S_UDP_REQ)` message and waits back for a message with code 21
 
 ```
 [UDP-SRV] JSON recv: [32]: {
@@ -240,11 +240,11 @@ To establish UDP connection camera sends an `code 20 (CODE_C2S_UDP_REQ)` message
 }
 [UDP] Send UDP response: {'code': 21, 'ip': '10.42.0.1', 'port': 53221}
 ```
-Point which is returned in `code 21 (CODE_S2C_UDP_RSP)` realy has no matter, due to we
+Point which is returned in `code 21 (CODE_S2C_UDP_RSP)` really has no matter
 
 > little remark, in CODE_ names could be found a prefixes like _C2S or _C2D - which means Client2Server or Client2Device and vice-versa 
 
-On the TCP channel sends a result of this operation, answer will contains a message with `code 12 (CODE_D2S_NAT_RSP)`
+On the TCP channel sends a result of this operation, answer will contain a message with `code 12 (CODE_D2S_NAT_RSP)`
 
 ```json
 {
@@ -345,18 +345,17 @@ Next step @ rcv: -
 
 ### 9. Frames fragmentation
 
-There are three type of frames - 1 (P2P_UDP_CMD_JPEG) / 4 (P2P_UDP_CMD_G711) / 7 (P2P_UDP_CMD_AVI). Type of frame is set in CMD field of tha package. 
-Jpeg frame could be fragmented (because one JPG frame have size ~15kb, which is more than MTU). To fragment it every package include MSG_FLAG value, where:
+There are three type of frames - 1 (P2P_UDP_CMD_JPEG) / 4 (P2P_UDP_CMD_G711) / 7 (P2P_UDP_CMD_AVI). Type of frame is set in CMD field of the package. JPEG frame could be fragmented (because one JPG frame have size ~15kb, which is more than MTU). To fragment it, every package includes MSG_FLAG value, where:
 
     * MSG_FLAG = 250 - Start of JPEG frame
     * MSG_FLAG = 251 - Continuation of JPEG frame
     * MSG_FLAG = 252 - End of JPEG frame
 
-the last 4 bytes of last JPEG frame contains size of full frame. 
+The last 4 bytes of the last JPEG package contains the size of the full frame. 
 
 Audio data is not fragmented and looks more like G711-ALAW audio stream 
 
-Every next sent frame should be repeated with `code 605 (P2P_UDP_CMD_RETRANSMISSION_CONFIRM)` which contains already received package_id's in a list. To achieve 10 fps this command should be retranmistted every 100ms. 
+Every next sent frame should be repeated with `code 605 (P2P_UDP_CMD_RETRANSMISSION_CONFIRM)` which contains already received package_id's in a list. To achieve 10 fps, this command should be retransmitted every 100ms. 
 
 ```log
 2023-03-06 20:04:05,450  [  DEBUG] [V720-STA] Request (UDP): CMD: 1, len: 1004 (1004), MSG_Flag: 250, pkg_id: 2802, deal_fl: 0, fwd-id: b'\x00\x00\x00\x00\x00\x00\x00\x00' Payload: ffd8ffe000104a46494600010100028001e00000ffc000110801e00280030121...
