@@ -3,10 +3,10 @@
 ## Preparing setup
 
 You should make an AP and prevent camera access to the internet. I have made it by NetworkManager-GUI, so no details.
-Also on my side, NetworkManager working as DHCP server, and in below IP 10.42.0.1 is my laptop and 10.42.0.22 is camera host
+Also on my side, NetworkManager working as DHCP server, and below used IP 10.42.0.1 is my laptop and 10.42.0.22 is camera host
 
 Then to be able intercept all cameras requests to the server, needed to install Dnsmasq and override `v720.naxclow.com` and `v720.p2p.naxclow.com` hosts to the local IP (10.42.0.1)
-This preparation could be done on a router (ie provide fake DNS records and offer dhcp address). But next one not.
+This preparation could be done on a router (ie provide fake DNS records and offer dhcp address).
 
 Last but not least, need to install `mosquitto` broker with `mosquitto-utils` to provide an mqtt control pipe. 
 
@@ -15,7 +15,7 @@ After such preparations, camera must be connected to fake-AP, this could be done
 
 ## Camera server registration steps
 
-1. First device goes to register on `bootstrap` server which gives to camera new name and after point on dedicated server with which it will works
+1. First device goes to register on `bootstrap` server which gives to camera new name and after, point on dedicated server with which it will works
 
 ```log
 curl -v -X POST "http://v720.naxclow.com/app/api/ApiSysDevicesBatch/registerDevices?batch=A9_X4_V12&random=DEFGHI&token=547d4ef98b"
@@ -95,7 +95,8 @@ curl -v -X POST "http://v720.naxclow.com/app/api/ApiServer/getA9ConfCheck?device
 * Connection #0 to host v720.naxclow.com left intact
 {"code":200,"message":"操作成功","data":{"tcpPort":29940,"uid":"0800c00128F8","isBind":"8","domain":"v720.naxclow.com","updateUrl":null,"host":"43.240.74.95","currTime":"1676097689","pwd":"91edf41f","version":null}}
 ```
-3. Device send registration on main server (provided via bootstrap, ie 43.240.74.95:29940)
+
+3. Device send registration to the main server (provided via bootstrap, ie tcp 43.240.74.95:29940)
 
 ```hex
 0000                     57 00 00 00 00 00 00 00 00 00         W.........
@@ -111,7 +112,7 @@ curl -v -X POST "http://v720.naxclow.com/app/api/ApiServer/getA9ConfCheck?device
 And respone:
 
 ```bash
-~# python3 naxclow.py 43.240.72.158 29941 57000000000000000000000000000000000000007b22636f6465223a203130302c2022756964223a2022303830306330303132384638222c2022746f6b656e223a2022393165646634316622202c22646f6d61696e223a2022763732302e6e6178636c6f772e636f6d227d
+~# python3 tcp_hex.py 43.240.72.158 29941 57000000000000000000000000000000000000007b22636f6465223a203130302c2022756964223a2022303830306330303132384638222c2022746f6b656e223a2022393165646634316622202c22646f6d61696e223a2022763732302e6e6178636c6f772e636f6d227d
 190000000000ff00ffffffffffffffff000000007b22636f6465223a3130312c22737461747573223a3230307d
 ^CTraceback (most recent call last):
   File "/root/naxclow.py", line 10, in <module>
@@ -182,7 +183,17 @@ On poweroff camera will send:
 
 MQTT Commands, commands sends always to the same topic: `Naxclow/P2P/Users/Device/sub/0800c00128F8`
 
-To test command, use `mosquitto_pub` and `mosquitto_sub` 
+To test command, use `mosquitto_pub` and `mosquitto_sub`
+
+For example: 
+```
+mosquitto_pub -t 'Naxclow/P2P/Users/Device/sub/0800c00128F8' -h 10.42.0.1 -m '{ "code": 204, "s": "mifi", "p": "mifimifi"}'
+```
+
+and listen answers like:
+```
+mosquitto_sub -t '#' -h 'v720.p2p.naxclow.com' -v | ts [%.s]
+```
 
 | CODE                           | Value                                    | Description                                                                                                          |
 | ------------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
