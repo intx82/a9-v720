@@ -1,3 +1,4 @@
+import logging
 import threading
 from datetime import datetime
 
@@ -18,7 +19,7 @@ class v720_sta(log):
     CLI_TG = '00112233445566778899aabbccddeeff'
     CLI_TKN = 'deadc0de'
 
-    def __init__(self, tcp_conn: netsrv_tcp, udp_conn=None, videoframe_cb=None, audioframe_cb=None) -> None:
+    def __init__(self, tcp_conn: netsrv_tcp, udp_conn=None, videoframe_cb=None, audioframe_cb=None, init_done_cb=None) -> None:
         super().__init__('V720-STA')
         self._raw_hnd_lst = {
             f'{cmd_udp.P2P_UDP_CMD_JSON}': self.__json_hnd,
@@ -47,13 +48,12 @@ class v720_sta(log):
 
         self._vframe_cb = videoframe_cb
         self._aframe_cb = audioframe_cb
+        self._init_done_cb = init_done_cb
 
         self._uid = None
         self._data_ch_probed = False
 
         self._retrans_tmr = None
-        
-
         self.set_tcp_conn(tcp_conn)
         if udp_conn is not None:
             self.set_udp_conn(udp_conn)
@@ -67,6 +67,10 @@ class v720_sta(log):
     @property
     def host(self):
         return self._tcp._host
+
+    @property
+    def port(self):
+        return self._tcp._port
 
     def set_tcp_conn(self, tcp_conn: netsrv_tcp):
         self._tcp = tcp_conn
@@ -93,6 +97,12 @@ class v720_sta(log):
             self._aframe_cb = cb
         else:
             self._aframe_cb = None
+
+    def set_init_done_cb(self, cb: callable):
+        if cb is not None and callable(cb):
+            self._init_done_cb = cb
+        else:
+            self._init_done_cb = None
 
     def __tcp_hnd(self):
         while not self._tcp.is_closed:
@@ -142,7 +152,7 @@ class v720_sta(log):
 
     def __reg_req_hnd(self, conn: netsrv_tcp, pkg: prot_json_udp):
         self._uid = pkg.json["uid"]
-        self.info(f'Recieve registration request (device: {self._uid})')
+        self.info(f'Receive registration request (device: {self._uid})')
         resp = prot_json_udp(json={
             'code': cmd_udp.CODE_S2_REGISTER_RSP,
             'status': 200
@@ -224,6 +234,11 @@ class v720_sta(log):
 
     def __baseinfo_hnd(self, conn: netsrv_tcp, pkg: prot_json_udp):
         self.info(f'Found device, starting video-streaming')
+        if self._init_done_cb is not None and callable(self._init_done_cb):
+            self._init_done_cb(self)
+        self.cap_live()
+
+    def cap_live(self):
         resp = self.__prep_fwd({
             'code': cmd_udp.CODE_FORWARD_OPEN_A_OPEN_V
         })
@@ -234,20 +249,33 @@ class v720_sta(log):
             self._retrans_tmr.cancel()
             self._retrans_tmr = None
 
+    def cap_stop(self):
+        resp = self.__prep_fwd({
+            'code': cmd_udp.CODE_FORWARD_CLOSE_A_CLOSE_V
+        })
+        self.dbg(f'Send stop streaming (close_video/close_audio) {resp}')
+        self._tcp.send(resp.req())
+        self._first_retrans_send = False
+        if self._retrans_tmr:
+            self._retrans_tmr.cancel()
+            self._retrans_tmr = None
 
     def __on_open_video(self, conn: netsrv_tcp, pkg: prot_json_udp):
         self.info(f'Starting video streaming')
 
-    def __retransmission_confirm(self, sent_empty = False):
-        
+
+    def __rtr_tmr_hnd(self):
         if self._retrans_tmr:
             self._retrans_tmr.cancel()
 
-        self._retrans_tmr = threading.Timer(0.1, self.__retransmission_confirm)
-        self._retrans_tmr.setDaemon(True)
-        self._retrans_tmr.setName(f'retrans-tmr@{self._tcp._host}:{self._tcp._port}')
-        self._retrans_tmr.start()
+        if  self._first_retrans_send: 
+            self._retrans_tmr = threading.Timer(0.1, self.__rtr_tmr_hnd)
+            self._retrans_tmr.setDaemon(True)
+            self._retrans_tmr.setName(f'retrans-tmr@{self._tcp._host}:{self._tcp._port}')
+            self._retrans_tmr.start()
+            self.__retransmission_confirm()
 
+    def __retransmission_confirm(self, sent_empty=False):
         pkg = prot_udp(b'', cmd_udp.P2P_UDP_CMD_RETRANSMISSION_CONFIRM)
 
         if not sent_empty:
@@ -261,13 +289,7 @@ class v720_sta(log):
         self.dbg('Send empty P2P_UDP_CMD_RETRANSMISSION_CONFIRM')
         self._udp.send(pkg.req())
 
-
     def __on_audio_rcv_hnd(self, conn: netsrv_udp, payload: bytes):
-        self.info('Recieve G711 frame')
-        if self._aframe_cb is None or not callable(self._aframe_cb):
-            self.err('There is no handler to proccess audioframe')
-            return
-
         pkg = prot_udp.resp(payload)
         with self._frame_lst_mtx:
             self._frame_lst.append(pkg._pkg_id)
@@ -279,16 +301,13 @@ class v720_sta(log):
             self._aframe.extend(pkg.payload)
         elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_END:
             self._aframe.extend(pkg.payload)
-            self._aframe_cb(self, self._vframe)
+            self._aframe_cb(self, self._aframe)
         elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_FINISH:
-            self._aframe_cb(self, pkg.payload)
+            if self._aframe_cb is not None and callable(self._aframe_cb):
+                self.info('Receive G711 frame')
+                self._aframe_cb(self, pkg.payload)
 
     def __on_mjpg_rcv_hnd(self, conn: netsrv_udp, payload: bytes):
-        self.info('Receive H264 frame')
-        if self._vframe_cb is None or not callable(self._vframe_cb):
-            self.err('There is no handler to proccess videoframe')
-            return
-
         pkg = prot_udp.resp(payload)
         with self._frame_lst_mtx:
             self._frame_lst.append(pkg._pkg_id)
@@ -301,31 +320,35 @@ class v720_sta(log):
         elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_BODY:
             self._vframe.extend(pkg.payload)
         elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_END:
-            self._vframe.extend(pkg.payload[:-4])
+            self._vframe.extend(pkg.payload[:-5])
             sz = int.from_bytes(pkg.payload[-4:], byteorder='little')
             self.info(f'Receive H264 frame sz: ({sz} <> {len(self._vframe)})')
-            self._vframe_cb(self, self._vframe)
+            if self._vframe_cb is not None and callable(self._vframe_cb):
+                self._vframe_cb(self, self._vframe)
+
             if not self._first_retrans_send:
                 self.__retransmission_confirm(sent_empty=True)
                 self._first_retrans_send = True
+                self.__rtr_tmr_hnd()
 
         elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_FINISH:
             self.info(f'Receive single H264 frame')
-            self._vframe_cb(pkg.payload)
+            if self._vframe_cb is not None and callable(self._vframe_cb):
+                self._vframe_cb(pkg.payload)
 
 
-if __name__ == '__main__':
+def start_srv():
     from v720_http import v720_http
 
     devices = []
     _mtx = threading.Lock()
 
-    def on_video_frame(dev: v720_sta, mjpg: bytes):
-        with open('out.jpg', 'wb') as fd:
-            fd.write(mjpg)
-
-    def on_audio_frame(dev: v720_sta, mjpg: bytes):
-        pass
+    def on_init_done(dev: v720_sta):
+        print(f'''-------- Found device {dev.id} --------
+\033[92mLive capture: http://127.0.0.1/dev/{dev.id}/live
+Snapshot: http://127.0.0.1/dev/{dev.id}/snapshot\033[0m
+''')
+        v720_http.add_dev(dev)
 
     def tcp_thread():
         with netsrv_tcp('', v720_sta.TCP_PORT) as _tcp:
@@ -335,8 +358,7 @@ if __name__ == '__main__':
                 if fork is not None:
                     with _mtx:
                         devices.append(v720_sta(fork,
-                                                videoframe_cb=on_video_frame,
-                                                audioframe_cb=on_audio_frame
+                                                init_done_cb=on_init_done
                                                 ))
 
     def udp_thread():
@@ -369,3 +391,6 @@ if __name__ == '__main__':
     udp_th.start()
 
     tcp_th.join()
+
+if __name__ == '__main__':
+    start_srv()

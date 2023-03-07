@@ -1,7 +1,6 @@
 
 from __future__ import annotations
 import socket
-import logging
 
 import time
 import cmd_udp
@@ -12,7 +11,7 @@ from netcl import netcl
 class netcl_tcp(netcl):
     def __init__(self, host: str, port: int) -> None:
         super().__init__(host, port, log_prefix='TCP-CL')
-        self._log.setLevel(logging.DEBUG)
+        
 
     def open(self) -> None:
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -62,7 +61,7 @@ class netcl_tcp(netcl):
                 data = bytearray(data)
                 while recv._len > len(recv.payload):
                     rl = recv._len - len(recv.payload)
-                    self.dbg(f'Full {recv._len} need {rl} Got {len(recv.payload)}, try to recieve rest')
+                    self.dbg(f'Full {recv._len} need {rl} Got {len(recv.payload)}, try to receive rest')
                     rest = self._socket.recv(rl)
                     if len(rest) == 0:
                         break

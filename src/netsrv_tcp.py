@@ -13,7 +13,6 @@ class netsrv_tcp(netcl):
         self.is_closed = True
         self._forked = False
         self._frk_conns = []
-        self._log.setLevel(logging.DEBUG)
 
     def fork(self) -> netsrv_tcp:
         if not self.is_closed:

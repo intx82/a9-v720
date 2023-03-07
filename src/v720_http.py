@@ -1,8 +1,11 @@
 
+from __future__ import annotations
 from datetime import datetime
 import email.utils
 import random
 import json
+import time
+from queue import Queue, Empty
 import socket
 from log import log
 
@@ -12,32 +15,146 @@ from a9_live import PORT
 TCP_PORT = PORT
 HTTP_PORT = 80
 
+
 class v720_http(log, BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
+    _dev_lst = {}
+    _dev_hnds = {}
+
+    @staticmethod
+    def add_dev(dev):
+        # if dev.id not in v720_http._dev_lst:
+        v720_http._dev_lst[dev.id] = dev
 
     @staticmethod
     def serve_forever():
         try:
             with HTTPServer(("", HTTP_PORT), v720_http) as httpd:
-                httpd.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                httpd.socket.setsockopt(
+                    socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
                 try:
                     httpd.serve_forever()
                 except KeyboardInterrupt:
                     print('exiting..')
                     exit(0)
         except PermissionError:
-            print(f'--- Can\'t open {HTTP_PORT} port due to system root permissions or maybe you have already running HTTP server?')
-            print(f'--- if not try to use "sudo sysctl -w net.ipv4.ip_unprivileged_port_start=80"')
+            print(
+                f'--- Can\'t open {HTTP_PORT} port due to system root permissions or maybe you have already running HTTP server?')
+            print(
+                f'--- if not try to use "sudo sysctl -w net.ipv4.ip_unprivileged_port_start=80"')
             exit(1)
 
+    def __new__(cls, *args, **kwargs) -> v720_http:
+        ret = super(v720_http, cls).__new__(cls)
+        cls._dev_hnds["live"] = ret.__live_hnd
+        cls._dev_hnds["snapshot"] = ret.__snapshot_hnd
+        return ret 
 
     def __init__(self, request, client_address, server) -> None:
         log.__init__(self, 'HTTP')
         BaseHTTPRequestHandler.__init__(self, request, client_address, server)
 
-
     def log_message(self, format: str, *args) -> None:
         self.info(format % args)
+
+    def __dev_list(self):
+        self.info(f'GET device list: {self.path}')
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Connection', 'close')
+        self.end_headers()
+        _devs = []
+        for _id in v720_http._dev_lst.keys():
+            _dev = v720_http._dev_lst[_id]
+            _devs.append({
+                'host': _dev.host,
+                'port': _dev.port,
+                'uid': _id
+            })
+
+        self.wfile.write(json.dumps(_devs).encode('utf-8'))
+
+
+    def __live_hnd(self, dev):
+        q = Queue(1024) # 15kb * 1024 ~ 15mb per camera
+        def _on_video_frame(dev, frame):
+            q.put(frame)
+
+        dev.set_vframe_cb(_on_video_frame)
+        
+        try:
+            self.info(f'Live video request @ {dev.id}')
+            self.send_response(200)
+            self.send_header('Connection', 'keep-alive')
+            self.send_header('Age', 0)
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Content-type', 'multipart/x-mixed-replace; boundary="jpgboundary"')
+            self.end_headers()
+            while not self.wfile.closed:
+                img = q.get(timeout=5)
+                self.wfile.write(b"--jpgboundary\r\n")
+                self.send_header('Content-type', 'image/jpeg')
+                # self.send_header('Content-length', len(img))
+                self.end_headers()
+                self.wfile.write(img)
+                self.wfile.write(b'\r\n')
+
+        except Empty:
+            self.err('Camera request timeout')
+            self.send_response(502, f'Camera request timeout {dev.id}@{dev.host}:{dev.port}')
+        except BrokenPipeError:
+            self.err(f'Connection closed by peer ({self.client_address[0]})')
+
+        dev.set_vframe_cb(None)
+
+        try:
+            self.send_header('Content-length', 0)
+            self.send_header('Connection', 'close')
+            self.end_headers()
+        except BrokenPipeError:
+            self.err(f'Connection closed by peer ({self.client_address[0]})')
+
+
+    def __snapshot_hnd(self, dev):
+        q = Queue(1)
+        def _on_video_frame(dev, frame):
+            q.put(frame)
+
+        dev.set_vframe_cb(_on_video_frame)
+        try:
+            img = q.get(timeout=5)
+            self.send_response(200)
+            self.send_header('Content-type', 'image/jpeg')
+            self.send_header('Content-length', len(img))
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            self.wfile.write(img)
+
+        except Empty:
+            self.err('Camera request timeout')
+            self.send_response(502, f'Camera request timeout {dev.id}@{dev.host}:{dev.port}')
+        except BrokenPipeError:
+            self.err(f'Connection closed by peer ({self.client_address[0]})')
+
+        dev.set_vframe_cb(None)
+
+
+    def do_GET(self):
+        if self.path.startswith('/dev/list'):
+            self.__dev_list()
+        else:
+            _path = self.path[1:].split('/')
+            if len(_path) == 3 and \
+                    _path[0] == 'dev' and \
+                    _path[1] in v720_http._dev_lst:
+                _cmd = _path[2]
+
+                if _cmd in self._dev_hnds:
+                    _dev = v720_http._dev_lst[_path[1]]
+                    self._dev_hnds[_cmd](_dev)
+            else:
+                self.info(f'GET unknown path: {self.path}')
+                self.send_error(404, 'Not found')
 
     def do_POST(self):
         ret = None
@@ -51,7 +168,7 @@ class v720_http(log, BaseHTTPRequestHandler):
         self.info(f'POST {self.path}')
         if self.path.startswith('/app/api/ApiSysDevicesBatch/registerDevices'):
             ret = {"code": 200, "message": "OK",
-                    "data": f"0800c00{random.randint(0,99999):05d}"}
+                   "data": f"0800c00{random.randint(0,99999):05d}"}
         elif self.path.startswith('/app/api/ApiSysDevicesBatch/confirm'):
             ret = {"code": 200, "message": "OK", "data": None}
 
@@ -63,7 +180,7 @@ class v720_http(log, BaseHTTPRequestHandler):
                     uid = param.split('=')[1]
 
             ret = {
-                "code": 200, 
+                "code": 200,
                 "message": "OK",
                 "data": {
                     "tcpPort": TCP_PORT,
@@ -71,13 +188,13 @@ class v720_http(log, BaseHTTPRequestHandler):
                     "isBind": "8",
                     "domain": "v720.naxclow.com",
                     "updateUrl": None,
-                    "host": "10.42.0.1", 
-                    "currTime": f'{int(datetime.timestamp(datetime.now()))}', 
-                    "pwd": "deadbeef", 
+                    "host": "10.42.0.1",
+                    "currTime": f'{int(datetime.timestamp(datetime.now()))}',
+                    "pwd": "deadbeef",
                     "version": None
-                    }
                 }
-            
+            }
+
         if ret is not None:
             ret = json.dumps(ret)
             hdr.append(f'Content-Length: {len(ret)}')
@@ -100,6 +217,7 @@ if __name__ == '__main__':
                 print('exiting..')
                 exit(0)
     except PermissionError:
-        print(f'--- Can\'t open {HTTP_PORT} port due to system root permissions or maybe you have already running HTTP server?')
-        print(f'--- if not try to use "sudo sysctl -w net.ipv4.ip_unprivileged_port_start=80"')
-
+        print(
+            f'--- Can\'t open {HTTP_PORT} port due to system root permissions or maybe you have already running HTTP server?')
+        print(
+            f'--- if not try to use "sudo sysctl -w net.ipv4.ip_unprivileged_port_start=80"')

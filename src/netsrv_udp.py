@@ -16,7 +16,6 @@ class netsrv_udp(netsrv):
         self._frk_list = []
         self._rcv_data = Queue()
         self._waiter = None
-        self._log.setLevel(logging.DEBUG)
 
     @staticmethod
     def get_ip(host, port):
