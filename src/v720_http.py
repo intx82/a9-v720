@@ -4,12 +4,15 @@ from datetime import datetime
 import email.utils
 import random
 import json
-import time
+
 from queue import Queue, Empty
 import socket
 from log import log
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+import netifaces
+from netcl_udp import netcl_udp
 from a9_live import PORT
 
 TCP_PORT = PORT
@@ -179,6 +182,7 @@ class v720_http(log, BaseHTTPRequestHandler):
                 if param.startswith('devicesCode'):
                     uid = param.split('=')[1]
 
+            gws=netifaces.gateways()
             ret = {
                 "code": 200,
                 "message": "OK",
@@ -188,7 +192,7 @@ class v720_http(log, BaseHTTPRequestHandler):
                     "isBind": "8",
                     "domain": "v720.naxclow.com",
                     "updateUrl": None,
-                    "host": "10.42.0.1",
+                    "host": netcl_udp.get_ip(list(gws['default'].values())[0][0], 80),
                     "currTime": f'{int(datetime.timestamp(datetime.now()))}',
                     "pwd": "deadbeef",
                     "version": None
