@@ -8,8 +8,6 @@ Topic on 'home-assistant' forum: <a href="https://community.home-assistant.io/t/
 
 ## How to use script and short brief
 
-To use this script, the camera should have inserted SD card. All data are reads from SD card.
-
 Then, turn on the camera and attach to their Wifi-AP. AP name should(could) starts from prefix `Nax` (as i suppose it means name of manufacturer: Naxclow) For example, i have: `Nax_210000211234`
 
 Camera should give IP in range 192.168.169.100 / 255.255.255.0. After, you can try to connect with this script. 
@@ -84,7 +82,30 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
 
     PWD (password) should be at least 8 chars length, but not more 36
 
-    **After connecting to the AP, camera lost possibility to use this script. Camera will try to connect to Chinesse server (v720.naxclow.com) and try to work via it. For more details read <a href="fake_server.md">fake_server.md</a>**
+- Starting a fake-server
+    ```bash
+    python3 src/a9_naxclow.py -s
+    ```
+
+    **To properly work 'fake server', user must make DNS redirect on own (home) router domain 'v720.naxclow.com' and 'p2p.v720.naxclow.com' to own server IP**
+
+    **Also, on the server must be install any MQTT broker or 'p2p.v720.naxclow.com' should be redirected to any public mqtt broker**
+
+    **details how it's works could be found in <a href="fake_server.md">fake_server.md</a>**
+
+    After this part, fake server up the http web server and listening for camera incoming messages.
+    The list of available cameras will be available at `http://[FAKE_SRV_IP]/dev/list` (now as json array)
+
+    After connection camera, MJPEG video stream could be found at `http://[FAKE_SRV_IP]/dev/[CAM_ID]/live`, snapshot - `http://[FAKE_SRV_IP]/dev/[CAM_ID]/snapshot`
+
+    > There could be issues with opening tcp 80 port without root restriction, there are two ways:
+    >    - Run server from root (ie sudo)
+    >    - Allow use non-priviledged user this port  `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=80`
+    >    - Be sure that you are not running any other HTTP server in the system
+
+    To connect camera to the wifi might be used `--set-wifi` arg. See above
+
+
 
 ## Network options
 

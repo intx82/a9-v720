@@ -62,6 +62,14 @@ def fsm_get_status(conn: socket, to):
     conn.sendall(prot_json_udp(json=resp).req())
 
 
+def fsm_udp_get_status(conn: socket, to):
+    req = {'code': cmd_udp.CODE_S2_DEVICE_STATUS,
+           'status': 1}
+
+    print(f'[UDP] Send status req: {req}')
+    conn.sendto(prot_json_udp(json=req).req(), to)
+
+
 def fsm_udp_req(conn: socket, to):
     resp = {'code': cmd_udp.CODE_S2C_UDP_RSP,
             'ip': "10.42.0.1", "port": 53221}
@@ -150,6 +158,27 @@ def fsm_udp_timestamp(conn: socket, to):
 
 def udp_ping(conn: socket, to):
     conn.sendto(prot_udp(cmd=cmd_udp.P2P_UDP_CMD_PING).req(), to)
+
+
+class S(BaseHTTPRequestHandler):
+    protocol_version = 'HTTP/1.1'
+
+    def do_POST(self):
+        print('REQ:', self.path)
+        if self.path.startswith('/app/api/ApiSysDevicesBatch/registerDevices'):
+            self.close_connection = False
+            resp = 'HTTP/1.1 200\r\nServer: nginx/1.14.0 (Ubuntu)\r\nDate: Fri, 10 Feb 2023 21:43:40 GMT\r\nContent-Type: application/json\r\nContent-Length: 59\r\nConnection: keep-alive\r\n\r\n{"code":200,"message":"操作成功","data":"0800c0012345"}'
+            print(resp)
+            self.wfile.write(resp.encode('utf-8'))
+        if self.path.startswith('/app/api/ApiSysDevicesBatch/confirm'):
+            self.close_connection = False
+            resp = 'HTTP/1.1 200\r\nServer: nginx/1.14.0 (Ubuntu)\r\nDate: Fri, 10 Feb 2023 21:43:40 GMT\r\nContent-Type: application/json\r\nContent-Length: 59\r\nConnection: keep-alive\r\n\r\n{"code":200,"message":"操作成功","data": null}'
+            print(resp)
+            self.wfile.write(resp.encode('utf-8'))
+        elif self.path.startswith('/app/api/ApiServer/getA9ConfCheck'):
+            resp = 'HTTP/1.1 200\r\nServer: nginx/1.14.0 (Ubuntu)\r\nDate: Fri, 10 Feb 2023 22:29:57 GMT\r\nContent-Type: application/json\r\nContent-Length: 215\r\nConnection: keep-alive\r\n\r\n{"code":200,"message":"操作成功","data":{"tcpPort":6123,"uid":"0800c00128F8","isBind":"8","domain":"v720.naxclow.com","updateUrl":null,"host":"10.42.0.1","currTime":"1676097689","pwd":"91edf41f","version":null}}'
+            print(resp)
+            self.wfile.write(resp.encode('utf-8'))
 
 
 def tcp_thread(arg):
@@ -261,6 +290,48 @@ def srv_udp_thread(arg):
             pass
 
 
+# def cl_udp_thread(arg):
+#     global send_online
+#     probe = 2
+
+#     _socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#     _socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+#     _socket.bind(('10.42.0.1', 53221))
+#     while True:
+#         _payload, _to = _socket.recvfrom(1024)
+#         if not _payload or len(_payload) == 0:
+#             break
+
+#         _pkt = prot_udp.resp(_payload)
+
+#         if _pkt.cmd is None:
+#             continue
+
+#         _pkt = prot_udp.resp(_payload)
+#         if _pkt.cmd == 0:
+#             _pkt = prot_json_udp.resp(_payload)
+#             print(f'[UDP-CLI] JSON recv: [{len(_payload)}]: {_pkt}')
+
+#             if _pkt.json['code'] == cmd_udp.CODE_D2C_PROBE_RSP:
+#                 print(f'[UDP-CLI] JSON recv: [{len(_payload)}]: {_pkt}')
+#                 if probe:
+#                     fsm_probe_req(_socket, _to)
+#                     probe -= 1
+#                 else:
+#                     fsm_udp_retrans(_socket, _to)
+#                     # fsm_udp_timestamp(_socket, _to)
+#                     # _socket.sendto(prot_udp(cmd=cmd_udp.P2P_UDP_CMD_HEARTBEAT).req(), _to)
+#                     send_online = True
+#                     # FSM['step'] = FSM_GET_STATUS
+
+#         elif _pkt.cmd == cmd_udp.P2P_UDP_CMD_HEARTBEAT:
+#             print('[UDP] Heartbeat, sending response')
+#             _socket.sendto(
+#                 prot_udp(cmd=cmd_udp.P2P_UDP_CMD_HEARTBEAT).req(), _to)
+#         else:
+#             print(f'[UDP] Recv [{len(_payload)}]: {_pkt.cmd}')
+
+
 def start():
     tt = threading.Thread(target=tcp_thread, args=(1,))
     tt.setDaemon(True)
@@ -268,7 +339,20 @@ def start():
     tu = threading.Thread(target=srv_udp_thread, args=(1,))
     tu.setDaemon(True)
     tu.start()
-    v720_http.serve_forever()
+
+    # tu2 = threading.Thread(target=cl_udp_thread, args=(1,))
+    # tu2.setDaemon(True)
+    # tu2.start()
+
+    with HTTPServer(("", HTTP_PORT), S) as httpd:
+        httpd.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        print('running..')
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print('exiting..')
+            exit(0)
+
 
 if __name__ == '__main__':
     start()

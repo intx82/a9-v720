@@ -24,7 +24,7 @@ class prot_ap(prot_json_udp):
         return super().req()
 
     @staticmethod
-    def resp(income: bytes) -> prot_json_udp:
+    def resp(income: bytes) -> prot_ap:
         r = prot_json_udp.resp(income)
         if r is not None:
             return prot_ap(**asdict(r), content=r.json['content'])

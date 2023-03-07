@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 
-from conn_tcp import conn_tcp
+from netcl_tcp import netcl_tcp
 import time
 import argparse
 from datetime import datetime
 from tqdm.auto import tqdm
+from log import log
+import logging
+
+from v720_ap import v720_ap
+from v720_sta import start_srv
+
+from a9_live import show_live
+
 
 # _wifi_easyjoin: ssid:ap0 bssid:00:00:00:00:00:00 key:1213aCBVDiop@
 # _wifi_easyjoin: ssid:NAXCLOW bssid:00:00:00:00:00:00 key:34974033A
 
-from v720_ap import v720_ap
-
-from a9_live import show_live
 
 HOST = "192.168.169.1"
 PORT = 6123
@@ -76,6 +81,8 @@ def parse_dt_test():
     assert(ret[2] == 19)
 
 
+    start_srv()
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     arg_gr = parser.add_mutually_exclusive_group(required=True)
@@ -85,6 +92,8 @@ if __name__ == '__main__':
                         help='List available files (recorded date\'s and time\'s)')
     arg_gr.add_argument('-l', '--live', action="store_true",
                         help='Show live stream')
+    arg_gr.add_argument('-s', '--server', action='store_true',
+                        help='Start a fake-server', default=False)
     # arg_gr.add_argument('--set-ap-pwd', type=str,
     #                     help='Set AP password')
     arg_gr.add_argument('--set-wifi', nargs=2,
@@ -95,52 +104,66 @@ if __name__ == '__main__':
                         help='Enable IR led(lens)', default=False)
     parser.add_argument('-r', '--flip', action='store_true',
                         help='Flip camera', default=False)
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='Enable debug logs', default=False)
     parser.add_argument('-c', '--host', type=str,
                         help='Host and port (192.168.169.1:6123)', default=f"{HOST}:{PORT}")
 
     args = parser.parse_args()
-    host = args.host.split(':', 2)
-    port = PORT if len(host) == 1 else int(host[1])
 
-    with conn_tcp(host[0], port) as sock:
-        cam = v720_ap(sock)
-        cam.init_live_motion()
+    if not args.verbose:
+        log.set_log_lvl(logging.WARN)
 
-        if args.filelist and cam.sdcard_status():
-            print_filelist(cam)
-        elif args.download and cam.sdcard_status():
-            dt = parse_dt(args.download)
-            file_info = cam.avi_file_info(dt[0], dt[1], dt[2])
-            if file_info is None or file_info['fileSize'] == -1:
-                print(f'File {dt[0]}-{dt[1]}-{dt[2]} not found')
-                exit(1)
+    if args.server:
+        print('''-------- A9 V720 fake-server starting. --------
+\033[92mDevice list: http://127.0.0.1/dev/list
+Live capture: http://127.0.0.1/dev/[CAM-ID]/live
+Snapshot: http://127.0.0.1/dev/[CAM-ID]/snapshot\033[0m
+''')
+        start_srv()
+    else:
+        host = args.host.split(':', 2)
+        port = PORT if len(host) == 1 else int(host[1])
 
-            output = args.output
-            if output is None:
-                output = f"{file_info['fileName']}.avi"
+        with netcl_tcp(host[0], port) as sock:
+            cam = v720_ap(sock)
+            cam.init_live_motion()
 
-            print('Found file @', dt[0], dt[1], dt[2], ':',
-                  file_info['fileName'], ' with size:', file_info['fileSize'])
-            download(cam, args.output, dt[0],
-                     dt[1], dt[2], file_info['fileSize'])
-        elif args.live:
-            cam.ir_led(args.irled)
-            cam.flip(args.flip)
-            show_live(cam, args.output)
-        # elif args.set_ap_pwd:
-        #     print(f'Set AP pwd to: {args.set_ap_pwd}')
-        #     if len(args.set_ap_pwd) < 8 or len(args.set_ap_pwd) > 32:
-        #         print('AP password couldn\'t be lessa than 8 chars or more than 36')
-        #         exit(1)
+            if args.filelist and cam.sdcard_status():
+                print_filelist(cam)
+            elif args.download and cam.sdcard_status():
+                dt = parse_dt(args.download)
+                file_info = cam.avi_file_info(dt[0], dt[1], dt[2])
+                if file_info is None or file_info['fileSize'] == -1:
+                    print(f'File {dt[0]}-{dt[1]}-{dt[2]} not found')
+                    exit(1)
 
-        #     print(cam.set_ap_pwd(args.set_ap_pwd))
-        elif args.set_wifi:
-            print(f'Try to connect: SSID: {args.set_wifi[0]}, pwd: {args.set_wifi[1]}')
-            if cam.set_wifi(*args.set_wifi) is not None:
-                print('Set successful, rebooting camera')
-                cam.reboot()
+                output = args.output
+                if output is None:
+                    output = f"{file_info['fileName']}.avi"
+
+                print('Found file @', dt[0], dt[1], dt[2], ':',
+                    file_info['fileName'], ' with size:', file_info['fileSize'])
+                download(cam, args.output, dt[0],
+                        dt[1], dt[2], file_info['fileSize'])
+            elif args.live:
+                cam.ir_led(args.irled)
+                cam.flip(args.flip)
+                show_live(cam, args.output)
+            # elif args.set_ap_pwd:
+            #     print(f'Set AP pwd to: {args.set_ap_pwd}')
+            #     if len(args.set_ap_pwd) < 8 or len(args.set_ap_pwd) > 32:
+            #         print('AP password couldn\'t be lessa than 8 chars or more than 36')
+            #         exit(1)
+
+            #     print(cam.set_ap_pwd(args.set_ap_pwd))
+            elif args.set_wifi:
+                print(f'Try to connect: SSID: {args.set_wifi[0]}, pwd: {args.set_wifi[1]}')
+                if cam.set_wifi(*args.set_wifi) is not None:
+                    print('Set successful, rebooting camera')
+                    cam.reboot()
+                else:
+                    print('Camera not respond')
+
             else:
-                print('Camera not respond')
-
-        else:
-            print('Camera doesn\'t have a SD Card')
+                print('Camera doesn\'t have a SD Card')

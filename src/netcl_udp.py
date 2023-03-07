@@ -1,11 +1,11 @@
 
 from __future__ import annotations
 import socket
-from conn import conn
+from netcl import netcl
 
-class conn_udp(conn):
+class netcl_udp(netcl):
     def __init__(self, host: str, port: int) -> None:
-        super().__init__(host, port)
+        super().__init__(host, port, log_prefix='UDP-CL')
 
     @staticmethod
     def get_ip(host, port):
@@ -18,30 +18,35 @@ class conn_udp(conn):
     def open(self) -> None:
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._socket.bind((conn_udp.get_ip(self._host, self._port), self._port))
+        self._socket.bind((netcl_udp.get_ip(self._host, self._port), self._port))
+        self.info('[UDP-Client] connection open')
 
     def close(self) -> None:
+        self.info('[UDP-Client] connection closed')
         pass
 
-    def __enter__(self) -> conn_udp:
+    def __enter__(self) -> netcl_udp:
         self.open()
         return self
 
     def __exit__(self, t, v, traceback) -> None:
         self._socket.close()
 
-    def _rcv(self) -> bytes:
+    def recv(self) -> bytes:
         if self._socket is None:
             return None
 
-        return self._socket.recvfrom(1024)
+        r = self._socket.recvfrom(1024)
+        self.dbg(f'[UDP-Client] recv from {r[1]}: {r[0].hex()}')
+        return r
     
-    def _snd(self, data) -> None:
+    def send(self, data: bytes) -> None:
+        self.dbg(f'[UDP-Client] sending: {data.hex()}')
         self._socket.sendto(data, (self._host, self._port))
 
-    def _req(self, data, err=0) -> bytes:
+    def request(self, data, err=0) -> bytes:
         if self._socket is None:
             return None
 
-        self._snd(data)
-        return self._rcv()
+        self.send(data)
+        return self.recv()

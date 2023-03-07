@@ -9,7 +9,7 @@ from datetime import datetime
 from threading import Timer, Lock
 from PIL import Image
 
-from conn_tcp import conn_tcp
+from netcl_tcp import netcl_tcp
 from v720_ap import v720_ap
 
 HOST = "192.168.169.1"
@@ -100,7 +100,7 @@ def show_live(cam: v720_ap, videofile: str = None, audiofile: str = None):
 
 
 if __name__ == '__main__':
-    with conn_tcp(HOST, PORT) as sock:
+    with netcl_tcp(HOST, PORT) as sock:
         cam = v720_ap(sock)
         cam.init_live_motion()
         show_live(cam, 'live.avi')

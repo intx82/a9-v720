@@ -15,7 +15,10 @@ After such preparations, camera must be connected to fake-AP, this could be done
 
 ## Camera server registration steps
 
-1. First device goes to register on `bootstrap` server which gives to camera new name and after, point on dedicated server with which it will works
+### 1. Bootstrap HTTP operations
+
+First device goes to register on `bootstrap` server which gives to camera new name and after point on dedicated server with which it will works
+
 
 ```log
 curl -v -X POST "http://v720.naxclow.com/app/api/ApiSysDevicesBatch/registerDevices?batch=A9_X4_V12&random=DEFGHI&token=547d4ef98b"
@@ -41,7 +44,7 @@ curl -v -X POST "http://v720.naxclow.com/app/api/ApiSysDevicesBatch/registerDevi
 {"code":200,"message":"操作成功","data":"0800c00128F8"} 
 ```
 
-1.5 After bootstrap message camera might ask an confirmation from server. 
+ After bootstrap message camera might ask an confirmation from server. 
 
 ```Log
  curl -v -X POST 'http://v720.naxclow.com/app/api/ApiSysDevicesBatch/confirm?devicesCode=0800c0020ADC&random=NOPQRS&token=025d085049'
@@ -70,7 +73,9 @@ curl -v -X POST "http://v720.naxclow.com/app/api/ApiSysDevicesBatch/registerDevi
 After that device AP will have name `0800c00128F8`. `操作成功` - translates as 'OK'. This will happens only once, after this step camera will never do this again.
 
 
-2. Device try to get dedicated server info. So let's route them to our IP (10.42.0.1)
+### 2. Device try to get dedicated server info. 
+
+So let's route them to our IP (10.42.0.1)
 
 ```log
 curl -v -X POST "http://v720.naxclow.com/app/api/ApiServer/getA9ConfCheck?devicesCode=0800c00128F8&random=FGHIJK&token=68778db973"
@@ -95,8 +100,10 @@ curl -v -X POST "http://v720.naxclow.com/app/api/ApiServer/getA9ConfCheck?device
 * Connection #0 to host v720.naxclow.com left intact
 {"code":200,"message":"操作成功","data":{"tcpPort":29940,"uid":"0800c00128F8","isBind":"8","domain":"v720.naxclow.com","updateUrl":null,"host":"43.240.74.95","currTime":"1676097689","pwd":"91edf41f","version":null}}
 ```
+### 3. Initial registration
 
-3. Device send registration to the main server (provided via bootstrap, ie tcp 43.240.74.95:29940)
+Device send registration on main server (provided via bootstrap, ie 43.240.74.95:29940)
+
 
 ```hex
 0000                     57 00 00 00 00 00 00 00 00 00         W.........
@@ -132,7 +139,7 @@ CMD: 0, len: 25 (25), MSG_Flag: 255, pkg_id: 0, deal_fl: 0, fwd-id: b'\xff\xff\x
 JSON: {'code': 101, 'status': 200}
 ```
 
-4. Camera try to connect to the p2p server
+### 4. Camera try to connect to the p2p server
 
 P2P server: v720.p2p.naxclow.com. Override it also to 10.42.0.1
 
@@ -158,7 +165,7 @@ MQ Telemetry Transport Protocol, Connect Command
     Password Length: 12
     Password: "656f41d93b"
 ```
-5. MQTT operations
+### 5. MQTT operations
 
 Camera subscribes to topic `Naxclow/P2P/Users/Device/sub/0800c00128F8` and publish a few messages to `Naxclow/P2P/Users/Device/Status` and `Naxclow/P2P/Users/Device/Info`
 
@@ -178,8 +185,7 @@ On poweroff camera will send:
 ```json
 {"device":"0800c00128F8","token":"NAXCLOW","status": 0}
 ```
-
-6. Commands:
+Commands:
 
 MQTT Commands, commands sends always to the same topic: `Naxclow/P2P/Users/Device/sub/0800c00128F8`
 
@@ -214,5 +220,157 @@ mosquitto_sub -t '#' -h 'v720.p2p.naxclow.com' -v | ts [%.s]
 | CODE_FORWARD_DEV_LED_EI        | { code: 220, ledEI: *, lightGrade: *}    | ledEI control 0/1 (in code ledEI == lightGrade) but not working                                                      |
 | CODE_FORWARD_DEV_MOTOR_STATE   | { code: 212, pirSysMode: *}              | ?                                                                                                                    |
 
-7. Camera establish a connection via NAT
+### 6. Camera establish a connection via NAT
 
+To establish a connection via NAT server sends a message with a `code 11` (CODE_S2D_NAT_REQ). 
+
+```
+{'code': 11, 'cliTarget': '00112233445566778899aabbccddeeff', 'cliToken': '55ABfb77', 'cliIp': '10.42.0.1', 'cliPort': 53221, 'cliNatIp': '10.42.0.1', 'cliNatPort': 41234}
+```
+
+If put in code 11 message wrong IP, nothing bad happens, but opens a door to make a redirection to a 3-rd host (irl this should be phone with application).
+
+After camera will try to establish connection via UDP with at least one of proposed ports (53221 / 41234), otherwise will try to use the same port/IP as TCP but on UDP. This UDP channel later will be used as data-channel to transmit a MJPG/G711 data.
+
+To establish UDP connection camera sends an `code 20 (CODE_C2S_UDP_REQ)` message and waits back for message with code 21
+
+```
+[UDP-SRV] JSON recv: [32]: {
+    "code": 20
+}
+[UDP] Send UDP response: {'code': 21, 'ip': '10.42.0.1', 'port': 53221}
+```
+Point which is returned in `code 21 (CODE_S2C_UDP_RSP)` realy has no matter, due to we
+
+> little remark, in CODE_ names could be found a prefixes like _C2S or _C2D - which means Client2Server or Client2Device and vice-versa 
+
+On the TCP channel sends a result of this operation, answer will contains a message with `code 12 (CODE_D2S_NAT_RSP)`
+
+```json
+{
+    "code": 12,
+    "status": 200,
+    "devIp": "10.42.0.1",
+    "devPort": 53221,
+    "devNatIp": "10.42.0.28",
+    "devNatPort": 29291,
+    "cliTarget": "00112233445566778899aabbccddeeff",
+    "cliToken": "55ABfb77"
+}
+```
+
+### 7. Switching camera to command mode
+
+After receiving a message with `code 12 (CODE_D2S_NAT_RSP)` camera will sends a message with `code 51 (CODE_C2D_PROBE_RSP)`. By default client might send an CODE_C2D_PROBE_REQ again, answer will be the same (ie `code 51 (CODE_C2D_PROBE_RSP)`)
+
+To switch a camera into command mode need to send:
+
+1. command with `code 50 (CODE_C2D_PROBE_REQ)` 
+
+    ```json
+    {"code": 50}
+    ```
+2. Got an answer with `code 51 (CODE_C2D_PROBE_RSP)`
+    
+    ```JSON
+    {
+    "code": 51,
+    "devTarget": "0800c0012345",
+    "status": 200
+    }
+    ```
+
+3. Send a command to enable command mode, there will not be answer to this command. `code 53 (CODE_S2_DEVICE_STATUS)`
+   ```JSON
+   {"code": 53, "status": 1}
+   ```
+
+4. Send restransmission command:
+   
+   ```JSON
+   {"code": 301, "target": "00112233445566778899aabbccddeeff", "content": {"code": 298}}
+  ```
+
+  Where `code 301 (CODE_CMD_FORWARD)` it's a forward code and used the same as in AP mode. 
+  `code 298 (CODE_RETRANSMISSION)` - it's a retransmission command itself
+
+  There is no answer to this command too
+
+5. Request a base-info command. So next steps almost the same as it was in AP mode.
+
+  ```JSON
+  {"code": 301, "target": "00112233445566778899aabbccddeeff", "content": {"unixTimer": 1677886134, "code": 4}}
+  ```
+
+  `code 4 (CODE_FORWARD_DEV_BASE_INFO)` - baseinfo command. 
+
+  On answer to this comamnd, camera will sends current status:
+
+  ```JSON
+  {
+    "code": 301,
+    "target": "00112233445566778899aabbccddeeff",
+    "content": {
+        "code": 4,
+        "IrLed": 1,
+        "devPower": 100,
+        "speedGrade": 1,
+        "moveAlert": 0,
+        "sdMoveMode": 0,
+        "wifiName": "intl-laptop",
+        "instLed": 1,
+        "sdDevStatus": 0,
+        "mirrorFlip": 0,
+        "version": "202212011602"
+    }
+  }
+  ```
+
+### 8. Starting a streaming
+  
+Starting the streaming is the same as in AP mode, need to send `code 3` command in forward mode.
+
+```
+[TCP] Send caplive req: {'code': 301, 'target': '00112233445566778899aabbccddeeff', 'content': {'code': 3}}
+Next step @ rcv: -
+[TCP] JSON recv: [103]: {
+    "code": 301,
+    "target": "00112233445566778899aabbccddeeff",
+    "content": {
+        "code": 3
+    }
+}
+```
+
+
+### 9. Frames fragmentation
+
+There are three type of frames - 1 (P2P_UDP_CMD_JPEG) / 4 (P2P_UDP_CMD_G711) / 7 (P2P_UDP_CMD_AVI). Type of frame is set in CMD field of tha package. 
+Jpeg frame could be fragmented (because one JPG frame have size ~15kb, which is more than MTU). To fragment it every package include MSG_FLAG value, where:
+
+    * MSG_FLAG = 250 - Start of JPEG frame
+    * MSG_FLAG = 251 - Continuation of JPEG frame
+    * MSG_FLAG = 252 - End of JPEG frame
+
+the last 4 bytes of last JPEG frame contains size of full frame. 
+
+Audio data is not fragmented and looks more like G711-ALAW audio stream 
+
+Every next sent frame should be repeated with `code 605 (P2P_UDP_CMD_RETRANSMISSION_CONFIRM)` which contains already received package_id's in a list. To achieve 10 fps this command should be retranmistted every 100ms. 
+
+```log
+2023-03-06 20:04:05,450  [  DEBUG] [V720-STA] Request (UDP): CMD: 1, len: 1004 (1004), MSG_Flag: 250, pkg_id: 2802, deal_fl: 0, fwd-id: b'\x00\x00\x00\x00\x00\x00\x00\x00' Payload: ffd8ffe000104a46494600010100028001e00000ffc000110801e00280030121...
+2023-03-06 20:04:05,450  [   INFO] [V720-STA] Receive H264 frame
+2023-03-06 20:04:05,450  [  DEBUG] [UDP-SRV 10.42.0.28:43258] Recv: ec0300000100fb000000000000000000f30a0000d00491befea071db352834015faf34bc8e940075381cfa521eb400bebed4649e307340083d3341e940054673...
+2023-03-06 20:04:05,450  [  DEBUG] [V720-STA] Request (UDP): CMD: 1, len: 1004 (1004), MSG_Flag: 251, pkg_id: 2803, deal_fl: 0, fwd-id: b'\x00\x00\x00\x00\x00\x00\x00\x00' Payload: d00491befea071db352834015faf34bc8e940075381cfa521eb400bebed4649e...
+... package body
+2023-03-06 20:04:05,475  [  DEBUG] [UDP-SRV 10.42.0.28:43258] Recv: ec0300000100fb0000000000000000000a0b0000d28003ed49d7af3ed400873c00093e829fe59cf4c8fa500382ede314a00cf3c500293cd213c500682e1506d1...
+2023-03-06 20:04:05,475  [  DEBUG] [V720-STA] Request (UDP): CMD: 1, len: 1004 (1004), MSG_Flag: 251, pkg_id: 2826, deal_fl: 0, fwd-id: b'\x00\x00\x00\x00\x00\x00\x00\x00' Payload: d28003ed49d7af3ed400873c00093e829fe59cf4c8fa500382ede314a00cf3c5...
+2023-03-06 20:04:05,475  [   INFO] [V720-STA] Receive H264 frame
+2023-03-06 20:04:05,475  [  DEBUG] [UDP-SRV 10.42.0.28:43258] Recv: a80200000100fc0000000000000000000b0b0000e30bc0a004c53b193c0a00090a0e693ef0c8ce2801728b81c963da9a72fd4e1470157b50028c018029a58034...
+2023-03-06 20:04:05,475  [  DEBUG] [V720-STA] Request (UDP): CMD: 1, len: 680 (680), MSG_Flag: 252, pkg_id: 2827, deal_fl: 0, fwd-id: b'\x00\x00\x00\x00\x00\x00\x00\x00' Payload: e30bc0a004c53b193c0a00090a0e693ef0c8ce2801728b81c963da9a72fd4e14...
+2023-03-06 20:04:05,475  [   INFO] [V720-STA] Receive H264 frame
+2023-03-06 20:04:05,475  [   INFO] [V720-STA] Receive H264 frame sz: (25775 <> 25776)
+2023-03-06 20:04:05,517  [  DEBUG] [V720-STA] Send empty P2P_UDP_CMD_RETRANSMISSION_CONFIRM
+2023-03-06 20:04:05,517  [  DEBUG] [UDP-SRV 10.42.0.28:43258] Send: 680000005d020000303030303030303000000000f20a0000f30a0000f40a0000f50a0000f60a0000f70a0000f80a0000f90a0000fa0a0000fb0a0000fc0a0000...
+```
