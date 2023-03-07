@@ -87,24 +87,24 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
     python3 src/a9_naxclow.py -s
     ```
 
-    **To properly work 'fake server', user must make DNS redirect on own (home) router domain 'v720.naxclow.com' and 'p2p.v720.naxclow.com' to own server IP**
+    **To properly work 'fake server', user must make DNS redirect on own (home) router - domains 'v720.naxclow.com' and 'p2p.v720.naxclow.com' to own server IP**
 
-    **Also, on the server must be install any MQTT broker or 'p2p.v720.naxclow.com' should be redirected to any public mqtt broker**
+    **Also, on the server must be installed any MQTT broker or 'p2p.v720.naxclow.com' should be redirected to any public mqtt broker**
 
     **details how it's works could be found in <a href="fake_server.md">fake_server.md</a>**
 
-    After this part, fake server up the http web server and listening for camera incoming messages.
+    After this part, fake server bring up the web server and listening for camera incoming messages.
+
     The list of available cameras will be available at `http://[FAKE_SRV_IP]/dev/list` (now as json array)
 
-    After connection camera, MJPEG video stream could be found at `http://[FAKE_SRV_IP]/dev/[CAM_ID]/live`, snapshot - `http://[FAKE_SRV_IP]/dev/[CAM_ID]/snapshot`
+    After connection camera, MJPEG video stream available at `http://[FAKE_SRV_IP]/dev/[CAM_ID]/live`, snapshot - `http://[FAKE_SRV_IP]/dev/[CAM_ID]/snapshot`
 
-    > There could be issues with opening tcp 80 port without root restriction, there are two ways:
+    > There could be issues with opening tcp 80 port without root restriction, there are two ways to avoid it:
     >    - Run server from root (ie sudo)
-    >    - Allow use non-priviledged user this port  `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=80`
+    >    - Allow use this port by non-priviledged user `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=80`
     >    - Be sure that you are not running any other HTTP server in the system
 
-    To connect camera to the wifi might be used `--set-wifi` arg. See above
-
+    To connect camera to the Wi-Fi might be used `--set-wifi` argument. See above
 
 
 ## Network options
