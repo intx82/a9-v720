@@ -106,13 +106,7 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
 
     To connect camera to the Wi-Fi might be used `--set-wifi` argument. See above
 
-
-## Network options
-
-After camera has been attached, camera provide an IP via DHCP in 192.168.169.* network. Camera itself will have ip 192.168.169.1 and have only one opened TCP port - 6123.
-
-Camera have mixed binary/json/xml protocol, where most of all commands sends in JSON. Check <src/prot_udp.py> (which works over TCP) <src/prot_json_udp.py>, etc
-
+** If you faced any issue, try to add `-v (--verbose)` argument to the tool, it may help, if not, don't hesitate, open a new issue, here, in github with a full logs **
 
 ## Original source
 
