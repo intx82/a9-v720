@@ -208,7 +208,12 @@ class v720_http(log, BaseHTTPRequestHandler):
             self.info(f'sending: {resp}')
             self.wfile.write(resp.encode('utf-8'))
         else:
-            self.error(f'Unknown POST query @ {self.path}')
+            self.err(f'Unknown POST query @ {self.path}')
+            self.send_response(404)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            self.wfile.write('Unknown POST request')
 
 
 if __name__ == '__main__':
