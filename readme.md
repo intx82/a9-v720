@@ -106,7 +106,7 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
 
     To connect camera to the Wi-Fi might be used `--set-wifi` argument. See above
 
-** If you faced any issue, try to add `-v (--verbose)` argument to the tool, it may help, if not, don't hesitate, open a new issue, here, in github with a full logs **
+**If you faced any issue, try to add `-v (--verbose)` argument to the tool, it may help, if not, don't hesitate, open a new issue, here, in github with a full logs**
 
 ## Original source
 
