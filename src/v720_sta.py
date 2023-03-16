@@ -159,7 +159,9 @@ class v720_sta(log):
         })
         self.dbg(f'send registration response: {resp}')
         conn.send(resp.req())
-        self.__send_nat_probe(conn)
+        # self.__send_nat_probe(conn)
+        if self._init_done_cb is not None and callable(self._init_done_cb):
+            self._init_done_cb(self)
 
     def __send_nat_probe(self, conn: netsrv_tcp):
         self.info(f'Sending NAT probe request')
@@ -234,11 +236,9 @@ class v720_sta(log):
 
     def __baseinfo_hnd(self, conn: netsrv_tcp, pkg: prot_json_udp):
         self.info(f'Found device, starting video-streaming')
-        if self._init_done_cb is not None and callable(self._init_done_cb):
-            self._init_done_cb(self)
-        self.cap_live()
+        self.__start_live()
 
-    def cap_live(self):
+    def __start_live(self):
         resp = self.__prep_fwd({
             'code': cmd_udp.CODE_FORWARD_OPEN_A_OPEN_V
         })
@@ -248,6 +248,9 @@ class v720_sta(log):
         if self._retrans_tmr:
             self._retrans_tmr.cancel()
             self._retrans_tmr = None
+
+    def cap_live(self):
+        self.__send_nat_probe(self._tcp)
 
     def cap_stop(self):
         resp = self.__prep_fwd({
@@ -262,7 +265,6 @@ class v720_sta(log):
 
     def __on_open_video(self, conn: netsrv_tcp, pkg: prot_json_udp):
         self.info(f'Starting video streaming')
-
 
     def __rtr_tmr_hnd(self):
         if self._retrans_tmr:

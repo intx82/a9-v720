@@ -93,6 +93,7 @@ class v720_http(log, BaseHTTPRequestHandler):
             self.send_header('Pragma', 'no-cache')
             self.send_header('Content-type', 'multipart/x-mixed-replace; boundary="jpgboundary"')
             self.end_headers()
+            dev.cap_live()
             while not self.wfile.closed:
                 img = q.get(timeout=5)
                 self.wfile.write(b"--jpgboundary\r\n")
@@ -107,8 +108,9 @@ class v720_http(log, BaseHTTPRequestHandler):
             self.send_response(502, f'Camera request timeout {dev.id}@{dev.host}:{dev.port}')
         except BrokenPipeError:
             self.err(f'Connection closed by peer ({self.client_address[0]})')
-
-        dev.set_vframe_cb(None)
+        finally:
+            dev.cap_stop()
+            dev.set_vframe_cb(None)
 
         try:
             self.send_header('Content-length', 0)
@@ -125,6 +127,7 @@ class v720_http(log, BaseHTTPRequestHandler):
 
         dev.set_vframe_cb(_on_video_frame)
         try:
+            dev.cap_live()
             img = q.get(timeout=5)
             self.send_response(200)
             self.send_header('Content-type', 'image/jpeg')
@@ -136,10 +139,11 @@ class v720_http(log, BaseHTTPRequestHandler):
         except Empty:
             self.err('Camera request timeout')
             self.send_response(502, f'Camera request timeout {dev.id}@{dev.host}:{dev.port}')
-        except BrokenPipeError:
+        except (BrokenPipeError, ConnectionResetError):
             self.err(f'Connection closed by peer ({self.client_address[0]})')
-
-        dev.set_vframe_cb(None)
+        finally:
+            dev.cap_stop()
+            dev.set_vframe_cb(None)
 
 
     def do_GET(self):
