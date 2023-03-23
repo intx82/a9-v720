@@ -178,7 +178,8 @@ class v720_http(log, BaseHTTPRequestHandler):
                    "data": f"0800c00{random.randint(0,99999):05d}"}
         elif self.path.startswith('/app/api/ApiSysDevicesBatch/confirm'):
             ret = {"code": 200, "message": "OK", "data": None}
-
+        elif self.path.startswith('/app/api/ApiSysDevices/a9bindingAppDevice'):
+            ret = {"code": 200, "message": "OK", "data": None}
         elif self.path.startswith('/app/api/ApiServer/getA9ConfCheck'):
             uid = f'{random.randint(0,99999):05d}'
             p = self.path[len('/app/api/ApiServer/getA9ConfCheck?'):]
