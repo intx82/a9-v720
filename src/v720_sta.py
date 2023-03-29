@@ -39,6 +39,7 @@ class v720_sta(log):
         self._fwd_hnd_lst = {
             f'{cmd_udp.CODE_FORWARD_DEV_BASE_INFO}': self.__baseinfo_hnd,
             f'{cmd_udp.CODE_FORWARD_OPEN_A_OPEN_V}': self.__on_open_video,
+            f'{cmd_udp.CODE_FORWARD_CLOSE_A_CLOSE_V}': self.__on_close_video,
         }
 
         self._vframe = bytearray()
@@ -264,7 +265,13 @@ class v720_sta(log):
             self._retrans_tmr = None
 
     def __on_open_video(self, conn: netsrv_tcp, pkg: prot_json_udp):
-        self.info(f'Starting video streaming')
+        self.warn(f'Starting video streaming')
+
+    def __on_close_video(self, conn: netsrv_tcp, pkg: prot_json_udp):
+        self.warn(f'Stoping video streaming')
+        if self._retrans_tmr:
+            self._retrans_tmr.cancel()
+            self._first_retrans_send = False
 
     def __rtr_tmr_hnd(self):
         if self._retrans_tmr:
