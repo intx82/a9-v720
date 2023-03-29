@@ -9,7 +9,9 @@ from queue import Queue, Empty
 import socket
 from log import log
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+import threading
 
 import netifaces
 from netcl_udp import netcl_udp
@@ -224,7 +226,7 @@ class v720_http(log, BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     try:
-        with HTTPServer(("", HTTP_PORT), v720_http) as httpd:
+        with ThreadingHTTPServer(("", HTTP_PORT), v720_http) as httpd:
             httpd.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
             try:
                 httpd.serve_forever()
