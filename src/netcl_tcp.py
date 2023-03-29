@@ -47,7 +47,6 @@ class netcl_tcp(netcl):
             data.extend(_a)
 
         recv = prot_udp.resp(bytearray(data))
-        self.dbg(f'recv prot_udp: {recv}')
         if recv is not None:
             if recv.cmd == cmd_udp.P2P_UDP_CMD_HEARTBEAT:
                 self._socket.sendall(
@@ -67,8 +66,11 @@ class netcl_tcp(netcl):
                         break
 
                     recv.payload.extend(rest)
+
+                self.dbg(f'recv prot_udp: {recv}')
                 return recv.req()
 
+        self.dbg(f'recv data: {bytearray(data).hex()}')
         return data
 
     def request(self, data, err=0) -> bytes:

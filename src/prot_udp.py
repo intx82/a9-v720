@@ -63,9 +63,13 @@ class prot_udp:
 
     @staticmethod
     def __dumps_bytes__(o):
-        if type(o) is bytes:
+        if type(o) is bytes or type(o) is bytearray:
             return o.hex()
-        return o.__dict__
+        
+        if hasattr(o, '__dict__'):
+            return o.__dict__
+
+        return f'{type(o)}'
 
     def __str__(self) -> str:
         return json.dumps(self.__dict__, default=self.__dumps_bytes__, indent=4)
