@@ -4,3 +4,4 @@
 *.wav
 *.mjpg
 *.pcap
+nohup.out

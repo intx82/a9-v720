@@ -9,7 +9,7 @@ from queue import Queue, Empty
 import socket
 from log import log
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import netifaces
 from netcl_udp import netcl_udp
@@ -32,7 +32,7 @@ class v720_http(log, BaseHTTPRequestHandler):
     @staticmethod
     def serve_forever():
         try:
-            with HTTPServer(("", HTTP_PORT), v720_http) as httpd:
+            with ThreadingHTTPServer(("", HTTP_PORT), v720_http) as httpd:
                 httpd.socket.setsockopt(
                     socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
                 try:
@@ -86,7 +86,7 @@ class v720_http(log, BaseHTTPRequestHandler):
         dev.set_vframe_cb(_on_video_frame)
         
         try:
-            self.info(f'Live video request @ {dev.id}')
+            self.warn(f'Live video request @ {dev.id} ({self.client_address[0]})')
             self.send_response(200)
             self.send_header('Connection', 'keep-alive')
             self.send_header('Age', 0)
@@ -107,20 +107,21 @@ class v720_http(log, BaseHTTPRequestHandler):
             self.err('Camera request timeout')
             self.send_response(502, f'Camera request timeout {dev.id}@{dev.host}:{dev.port}')
         except BrokenPipeError:
-            self.err(f'Connection closed by peer ({self.client_address[0]})')
+            self.err(f'Connection closed by peer @ {dev.id} ({self.client_address[0]})')
         finally:
+            dev.unset_vframe_cb(_on_video_frame)
             dev.cap_stop()
-            dev.set_vframe_cb(None)
 
         try:
             self.send_header('Content-length', 0)
             self.send_header('Connection', 'close')
             self.end_headers()
         except BrokenPipeError:
-            self.err(f'Connection closed by peer ({self.client_address[0]})')
+            self.err(f'Connection closed by peer @ {dev.id} ({self.client_address[0]})')
 
 
     def __snapshot_hnd(self, dev):
+        self.warn(f'Snapshot request @ {dev.id} ({self.client_address[0]})')
         q = Queue(1)
         def _on_video_frame(dev, frame):
             q.put(frame)
@@ -140,10 +141,10 @@ class v720_http(log, BaseHTTPRequestHandler):
             self.err('Camera request timeout')
             self.send_response(502, f'Camera request timeout {dev.id}@{dev.host}:{dev.port}')
         except (BrokenPipeError, ConnectionResetError):
-            self.err(f'Connection closed by peer ({self.client_address[0]})')
+            self.err(f'Connection closed by peer @ {dev.id} ({self.client_address[0]})')
         finally:
+            dev.unset_vframe_cb(_on_video_frame)
             dev.cap_stop()
-            dev.set_vframe_cb(None)
 
 
     def do_GET(self):
@@ -218,12 +219,12 @@ class v720_http(log, BaseHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.send_header('Connection', 'close')
             self.end_headers()
-            self.wfile.write('Unknown POST request')
+            self.wfile.write(b'Unknown POST request')
 
 
 if __name__ == '__main__':
     try:
-        with HTTPServer(("", HTTP_PORT), v720_http) as httpd:
+        with ThreadingHTTPServer(("", HTTP_PORT), v720_http) as httpd:
             httpd.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
             try:
                 httpd.serve_forever()
