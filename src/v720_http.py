@@ -109,8 +109,8 @@ class v720_http(log, BaseHTTPRequestHandler):
         except BrokenPipeError:
             self.err(f'Connection closed by peer @ {dev.id} ({self.client_address[0]})')
         finally:
+            dev.unset_vframe_cb(_on_video_frame)
             dev.cap_stop()
-            dev.set_vframe_cb(None)
 
         try:
             self.send_header('Content-length', 0)
@@ -143,8 +143,8 @@ class v720_http(log, BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             self.err(f'Connection closed by peer @ {dev.id} ({self.client_address[0]})')
         finally:
+            dev.unset_vframe_cb(_on_video_frame)
             dev.cap_stop()
-            dev.set_vframe_cb(None)
 
 
     def do_GET(self):
