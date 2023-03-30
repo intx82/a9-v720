@@ -57,7 +57,7 @@ class netsrv_udp(netsrv):
         return ret
 
     def close(self) -> None:
-        pass
+        self.is_closed = True
 
     def __enter__(self) -> netsrv_udp:
         return self

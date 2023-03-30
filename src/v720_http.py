@@ -28,6 +28,11 @@ class v720_http(log, BaseHTTPRequestHandler):
     def add_dev(dev):
         # if dev.id not in v720_http._dev_lst:
         v720_http._dev_lst[dev.id] = dev
+    
+    @staticmethod
+    def rm_dev(dev):
+        if dev.id in v720_http._dev_lst:
+            del v720_http._dev_lst[dev.id]
 
     @staticmethod
     def serve_forever():

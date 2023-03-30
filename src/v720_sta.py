@@ -19,8 +19,8 @@ class v720_sta(log):
     CLI_TG = '00112233445566778899aabbccddeeff'
     CLI_TKN = 'deadc0de'
 
-    def __init__(self, tcp_conn: netsrv_tcp, udp_conn=None, videoframe_cb=None, audioframe_cb=None, init_done_cb=None) -> None:
-        super().__init__('V720-STA')
+    def __init__(self, tcp_conn: netsrv_tcp, udp_conn: netsrv_udp = None, videoframe_cb: callable = None, audioframe_cb: callable = None, init_done_cb: callable = None, disconnect_cb: callable = None) -> None:
+        super().__init__(f'V720-STA@{id(self):x}')
         self._raw_hnd_lst = {
             f'{cmd_udp.P2P_UDP_CMD_JSON}': self.__json_hnd,
             f'{cmd_udp.P2P_UDP_CMD_HEARTBEAT}': self.__heartbeat_hnd,
@@ -47,6 +47,7 @@ class v720_sta(log):
         self._frame_lst_mtx = threading.Lock()
         self._frame_lst = []
 
+        self._cb_mtx = threading.Lock()
         self._vframe_cb = []
         if videoframe_cb is not None and callable(videoframe_cb):
             self._vframe_cb.append(videoframe_cb)
@@ -56,6 +57,7 @@ class v720_sta(log):
             self._aframe_cb.append(audioframe_cb)
 
         self._init_done_cb = init_done_cb
+        self._disconnect_cb = disconnect_cb
 
         self._uid = None
         self._data_ch_probed = False
@@ -95,19 +97,23 @@ class v720_sta(log):
 
     def set_vframe_cb(self, cb: callable):
         if cb is not None and callable(cb):
-            self._vframe_cb.append(cb)
- 
+            with self._cb_mtx:
+                self._vframe_cb.append(cb)
+
     def unset_vframe_cb(self, cb):
         if cb in self._vframe_cb:
-            self._vframe_cb.remove(cb)
+            with self._cb_mtx:
+                self._vframe_cb.remove(cb)
 
     def set_aframe_cb(self, cb: callable):
         if cb is not None and callable(cb):
-            self._aframe_cb.append(cb)
+            with self._cb_mtx:
+                self._aframe_cb.append(cb)
 
     def unset_aframe_cb(self, cb):
         if cb in self._aframe_cb:
-            self._aframe_cb.remove(cb)
+            with self._cb_mtx:
+                self._aframe_cb.remove(cb)
 
     def set_init_done_cb(self, cb: callable):
         if cb is not None and callable(cb):
@@ -115,11 +121,26 @@ class v720_sta(log):
         else:
             self._init_done_cb = None
 
+    def set_disconnect_cb(self, cb: callable):
+        if cb is not None and callable(cb):
+            self._disconnect_cb = cb
+        else:
+            self._disconnect_cb = None
+
     def __tcp_hnd(self):
         while not self._tcp.is_closed:
             self.__on_tcp_rcv(self._tcp.recv())
+        
+        if self._udp is not None:
+            self._udp.close()
+
+        if self._disconnect_cb is not None and callable(self._disconnect_cb):
+            self._disconnect_cb(self)
 
     def __on_tcp_rcv(self, data: bytes):
+        if data is None or len(data) == 0:
+            return
+
         req = prot_udp.resp(data)
         self.dbg(f'Request (TCP): {req.__repr__()}')
 
@@ -264,9 +285,10 @@ class v720_sta(log):
         self.__send_nat_probe(self._tcp)
 
     def cap_stop(self):
-        if len(self._vframe_cb) > 1:
-            self.warn(f'Client still conected')
-            return
+        with self._cb_mtx:
+            if len(self._vframe_cb) > 1:
+                self.warn(f'Client still conected')
+                return
 
         resp = self.__prep_fwd({
             'code': cmd_udp.CODE_FORWARD_CLOSE_A_CLOSE_V
@@ -291,7 +313,7 @@ class v720_sta(log):
         if self._retrans_tmr:
             self._retrans_tmr.cancel()
 
-        if  self._first_retrans_send: 
+        if self._first_retrans_send:
             self._retrans_tmr = threading.Timer(0.1, self.__rtr_tmr_hnd)
             self._retrans_tmr.setDaemon(True)
             self._retrans_tmr.setName(f'retrans-tmr@{self._tcp._host}:{self._tcp._port}')
@@ -324,14 +346,15 @@ class v720_sta(log):
             self._aframe.extend(pkg.payload)
         elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_END:
             self._aframe.extend(pkg.payload)
-
-            for cb in self._aframe_cb:
-                cb(self, self._aframe)
+            with self._cb_mtx:
+                for cb in self._aframe_cb:
+                    cb(self, self._aframe)
 
         elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_FINISH:
             self.dbg('Receive G711 frame')
-            for cb in self._aframe_cb:
-                cb(self, self._aframe)
+            with self._cb_mtx:
+                for cb in self._aframe_cb:
+                    cb(self, self._aframe)
 
     def __on_mjpg_rcv_hnd(self, conn: netsrv_udp, payload: bytes):
         pkg = prot_udp.resp(payload)
@@ -350,8 +373,9 @@ class v720_sta(log):
             sz = int.from_bytes(pkg.payload[-4:], byteorder='little')
             self.dbg(f'Receive H264 frame sz: ({sz} <> {len(self._vframe)})')
 
-            for cb in self._vframe_cb:
-                cb(self, self._vframe)
+            with self._cb_mtx:
+                for cb in self._vframe_cb:
+                    cb(self, self._vframe)
 
             if not self._first_retrans_send:
                 self.__retransmission_confirm(sent_empty=True)
@@ -360,8 +384,9 @@ class v720_sta(log):
 
         elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_FINISH:
             self.dbg(f'Receive single H264 frame')
-            for cb in self._vframe_cb:
-                cb(self, pkg.payload)
+            with self._cb_mtx:
+                for cb in self._vframe_cb:
+                    cb(self, pkg.payload)
 
 
 def start_srv():
@@ -377,6 +402,14 @@ Snapshot: http://127.0.0.1/dev/{dev.id}/snapshot\033[0m
 ''')
         v720_http.add_dev(dev)
 
+    def on_disconnect_dev(dev: v720_sta):
+        if dev in devices:
+            print(f'\033[31m-------- Device {dev.id} has been disconnected --------\033[0m')
+            devices.remove(dev)
+            v720_http.rm_dev(dev)
+        else:
+            print('Unknown dev')
+
     def tcp_thread():
         with netsrv_tcp('', v720_sta.TCP_PORT) as _tcp:
             while True:
@@ -384,9 +417,8 @@ Snapshot: http://127.0.0.1/dev/{dev.id}/snapshot\033[0m
                 fork = _tcp.fork()
                 if fork is not None:
                     with _mtx:
-                        devices.append(v720_sta(fork,
-                                                init_done_cb=on_init_done
-                                                ))
+                        dev = v720_sta(fork, init_done_cb=on_init_done, disconnect_cb=on_disconnect_dev)
+                        devices.append(dev)
 
     def udp_thread():
         with netsrv_udp('', v720_sta.UDP_PORT) as _udp:
@@ -418,6 +450,7 @@ Snapshot: http://127.0.0.1/dev/{dev.id}/snapshot\033[0m
     udp_th.start()
 
     tcp_th.join()
+
 
 if __name__ == '__main__':
     start_srv()

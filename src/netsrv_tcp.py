@@ -2,7 +2,7 @@
 from __future__ import annotations
 import socket
 import time
-import logging
+import sys
 
 from netcl import netcl
 
@@ -31,6 +31,12 @@ class netsrv_tcp(netcl):
             if not hasattr(self, '_socket'):
                 self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                if sys.platform.startswith('linux'):
+                    self._socket.setsockopt(socket.SOL_TCP, socket.TCP_KEEPIDLE, 30)
+                    self._socket.setsockopt(socket.SOL_TCP, socket.TCP_KEEPCNT, 4)
+                    self._socket.setsockopt(socket.SOL_TCP, socket.TCP_KEEPINTVL, 15)
+
                 self._socket.bind((self._host, self._port))
                 self._socket.listen(10)
 
@@ -46,10 +52,10 @@ class netsrv_tcp(netcl):
                 if not con.is_closed:
                     con.close()
             self._socket.close()
-            self.info(f'Connection closed')
+            self.err(f'Connection closed')
         else:
             self._conn.close()
-            self.info(f'Connection closed: {self._addr}')
+            self.err(f'Connection closed: {self._addr}')
 
     @property
     def fd(self) -> socket.socket:
@@ -73,8 +79,13 @@ class netsrv_tcp(netcl):
             if self._socket is None or self._conn is None:
                 return None
 
-            data = self._conn.recv(1024)
+            try:
+                data = self._conn.recv(1024)
+            except (ConnectionResetError, TimeoutError):
+                data = bytearray()
+
             if len(data) == 0:
+                self.err(f'Connection closed by peer (camera @ {self._addr})')
                 self.is_closed = True
                 self.close()
 
@@ -104,10 +115,12 @@ class netsrv_tcp(netcl):
             if not hasattr(self, '_socket') or not hasattr(self, '_conn'):
                 self.err('Connection closed, open it first')
                 return
-            
+
             if not self.is_closed:
                 self.dbg(f'Send: {data.hex() if len(data) < 64 else f"{data[:64].hex()}..."}')
                 self._conn.sendall(data)
+            else:
+                self.err('sending failed, connection closed')
         else:
             self.err('sending from not forked connection')
 
