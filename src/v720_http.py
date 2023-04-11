@@ -60,7 +60,10 @@ class v720_http(log, BaseHTTPRequestHandler):
 
     def __init__(self, request, client_address, server) -> None:
         log.__init__(self, 'HTTP')
-        BaseHTTPRequestHandler.__init__(self, request, client_address, server)
+        try:
+            BaseHTTPRequestHandler.__init__(self, request, client_address, server)
+        except ConnectionResetError:
+            self.err(f'Connection closed by peer @ ({self.client_address[0]})')
 
     def log_message(self, format: str, *args) -> None:
         self.info(format % args)

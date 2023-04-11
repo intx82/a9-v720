@@ -81,12 +81,11 @@ class netsrv_tcp(netcl):
 
             try:
                 data = self._conn.recv(1024)
-            except (ConnectionResetError, TimeoutError):
+            except (ConnectionResetError, TimeoutError, OSError):
                 data = bytearray()
 
             if len(data) == 0:
                 self.err(f'Connection closed by peer (camera @ {self._addr})')
-                self.is_closed = True
                 self.close()
 
             self.dbg(f'Recv: {data.hex() if len(data) < 64 else f"{data[:64].hex()}..."}')
@@ -118,7 +117,11 @@ class netsrv_tcp(netcl):
 
             if not self.is_closed:
                 self.dbg(f'Send: {data.hex() if len(data) < 64 else f"{data[:64].hex()}..."}')
-                self._conn.sendall(data)
+                try:
+                    self._conn.sendall(data)
+                except BrokenPipeError:
+                    self.err('sending failed, connection closed')
+                    self.close()
             else:
                 self.err('sending failed, connection closed')
         else:
