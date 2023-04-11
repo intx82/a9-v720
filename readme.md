@@ -87,7 +87,7 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
     python3 src/a9_naxclow.py -s
     ```
 
-    **To properly work 'fake server', user must make DNS redirect on own (home) router - domains 'v720.naxclow.com' and 'p2p.v720.naxclow.com' to own server IP**
+    **To properly work 'fake server', user must make DNS redirect on own (home) router - domains '*.naxclow.com' ('v720.naxclow.com', 'v720.p2p.naxclow.com', 'p2p.v720.naxclow.com') to own server IP**
 
     **Also, on the server must be installed any MQTT broker or 'p2p.v720.naxclow.com' should be redirected to any public mqtt broker**
 
