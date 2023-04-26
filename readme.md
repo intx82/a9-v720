@@ -104,6 +104,8 @@ Also, camera networking could be configured from UART via `ifconfig` and `wifi` 
     >    - Allow use this port by non-priviledged user `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=80`
     >    - Be sure that you are not running any other HTTP server in the system
 
+    if you are starting fake-server thru nginx proxy, use argument `--proxy-port` to change internal http port of fake server
+
     To connect camera to the Wi-Fi might be used `--set-wifi` argument. See above
 
 **If you faced any issue, try to add `-v (--verbose)` argument to the tool, it may help, if not, don't hesitate, open a new issue, here, in github with a full logs**

@@ -106,6 +106,8 @@ if __name__ == '__main__':
                         help='Flip camera', default=False)
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Enable debug logs', default=False)
+    parser.add_argument('--proxy-port', type=int,
+                        help='HTTP server port, use for proxying it via NGINX, etc', default=80)
     parser.add_argument('-c', '--host', type=str,
                         help='Host and port (192.168.169.1:6123)', default=f"{HOST}:{PORT}")
 
@@ -115,12 +117,12 @@ if __name__ == '__main__':
         log.set_log_lvl(logging.WARN)
 
     if args.server:
-        print('''-------- A9 V720 fake-server starting. --------
-\033[92mDevice list: http://127.0.0.1/dev/list
-Live capture: http://127.0.0.1/dev/[CAM-ID]/live
-Snapshot: http://127.0.0.1/dev/[CAM-ID]/snapshot\033[0m
+        print(f'''-------- A9 V720 fake-server starting. --------
+\033[92mDevice list: http://127.0.0.1:{args.proxy_port}/dev/list
+Live capture: http://127.0.0.1:{args.proxy_port}/dev/[CAM-ID]/live
+Snapshot: http://127.0.0.1:{args.proxy_port}/dev/[CAM-ID]/snapshot\033[0m
 ''')
-        start_srv()
+        start_srv(args.proxy_port)
     else:
         host = args.host.split(':', 2)
         port = PORT if len(host) == 1 else int(host[1])

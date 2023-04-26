@@ -35,9 +35,9 @@ class v720_http(log, BaseHTTPRequestHandler):
             del v720_http._dev_lst[dev.id]
 
     @staticmethod
-    def serve_forever():
+    def serve_forever(_http_port = HTTP_PORT):
         try:
-            with ThreadingHTTPServer(("", HTTP_PORT), v720_http) as httpd:
+            with ThreadingHTTPServer(("", _http_port), v720_http) as httpd:
                 httpd.socket.setsockopt(
                     socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
                 try:
@@ -46,10 +46,8 @@ class v720_http(log, BaseHTTPRequestHandler):
                     print('exiting..')
                     exit(0)
         except PermissionError:
-            print(
-                f'--- Can\'t open {HTTP_PORT} port due to system root permissions or maybe you have already running HTTP server?')
-            print(
-                f'--- if not try to use "sudo sysctl -w net.ipv4.ip_unprivileged_port_start=80"')
+            print(f'--- Can\'t open {_http_port} port due to system root permissions or maybe you have already running HTTP server?')
+            print(f'--- if not try to use "sudo sysctl -w net.ipv4.ip_unprivileged_port_start={_http_port}"')
             exit(1)
 
     def __new__(cls, *args, **kwargs) -> v720_http:

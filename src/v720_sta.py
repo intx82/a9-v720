@@ -389,7 +389,7 @@ class v720_sta(log):
                     cb(self, pkg.payload)
 
 
-def start_srv():
+def start_srv(_http_port):
     from v720_http import v720_http
 
     devices = []
@@ -397,8 +397,8 @@ def start_srv():
 
     def on_init_done(dev: v720_sta):
         print(f'''-------- Found device {dev.id} --------
-\033[92mLive capture: http://127.0.0.1/dev/{dev.id}/live
-Snapshot: http://127.0.0.1/dev/{dev.id}/snapshot\033[0m
+\033[92mLive capture: http://127.0.0.1:{_http_port}/dev/{dev.id}/live
+Snapshot: http://127.0.0.1:{_http_port}/dev/{dev.id}/snapshot\033[0m
 ''')
         v720_http.add_dev(dev)
 
@@ -437,7 +437,7 @@ Snapshot: http://127.0.0.1/dev/{dev.id}/snapshot\033[0m
                     if not dev_found:
                         fork.info('Device for connection is not found')
 
-    http_th = threading.Thread(target=v720_http.serve_forever, name='HTTP-SRV')
+    http_th = threading.Thread(target=v720_http.serve_forever, name='HTTP-SRV', args=(_http_port,))
     http_th.setDaemon(True)
     http_th.start()
 
