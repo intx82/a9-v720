@@ -33,7 +33,7 @@ def cv2_show_img(frame: bytearray):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 255, 0), 1, cv2.LINE_AA)
     writer_lock.release()
     cv2.imshow('Frame', last_img)
-
+    cv2.waitKey(1)
     frame_time = t
 
 
