@@ -1,3 +1,4 @@
+from __future__ import annotations
 import random
 import threading
 from datetime import datetime
@@ -11,7 +12,7 @@ from netsrv_udp import netsrv_udp
 import cmd_udp
 from prot_udp import prot_udp
 from prot_json_udp import prot_json_udp
-
+from v720_http import v720_http
 
 class v720_sta(log):
     TCP_PORT = 6123
@@ -19,11 +20,47 @@ class v720_sta(log):
     CLI_TG = '00112233445566778899aabbccddeeff'
     CLI_TKN = 'deadc0de'
     DEVS = []
+    
+    _is_running = True
 
     @staticmethod
-    def udp_solicitier():
+    def kill():
+        v720_sta._is_running = False
+
+    @staticmethod
+    def tcp_thread(_http_port: int, on_init_done: function, on_disconnect: function) -> None:
+        v720_sta._is_running = True
+        http_th = threading.Thread(target=v720_http.serve_forever, name='HTTP-SRV', args=(_http_port,))
+        http_th.setDaemon(True)
+        http_th.start()
+    
+        udp_th = threading.Thread(target=v720_sta.udp_thread, name='UDP-SRV')
+        udp_th.setDaemon(True)
+        udp_th.start()
+        
+        def _on_init_done(dev: v720_sta):
+            v720_http.add_dev(dev)
+            if on_init_done is not None and callable(on_init_done):
+                on_init_done(dev)
+            
+        def _on_disconnect(dev: v720_sta):
+            v720_http.rm_dev(dev)
+            if on_disconnect is not None and callable(on_disconnect):
+                on_disconnect(dev)
+
+        with netsrv_tcp('', v720_sta.TCP_PORT) as _tcp:
+            while v720_sta._is_running:
+                _tcp.open()
+                fork = _tcp.fork()
+                if fork is not None:
+                    v720_sta(fork, init_done_cb = _on_init_done, disconnect_cb=_on_disconnect)
+
+        udp_th.join()
+
+    @staticmethod
+    def udp_thread() -> None:
         with netsrv_udp('', v720_sta.UDP_PORT) as _udp:
-            while True:
+            while v720_sta._is_running:
                 _udp.open()
                 conn = _udp.fork()
                 if conn:
@@ -52,7 +89,7 @@ class v720_sta(log):
                                         d.set_udp_conn(conn)
 
 
-    def __init__(self, tcp_conn: netsrv_tcp, udp_conn: netsrv_udp = None, videoframe_cb: callable = None, audioframe_cb: callable = None, init_done_cb: callable = None, disconnect_cb: callable = None) -> None:
+    def __init__(self, tcp_conn: netsrv_tcp, udp_conn: netsrv_udp = None, videoframe_cb: function = None, audioframe_cb: function = None, init_done_cb: function = None, disconnect_cb: function = None) -> None:
         super().__init__(f'V720-STA@{id(self):x}')
         self._raw_hnd_lst = {
             f'{cmd_udp.P2P_UDP_CMD_JSON}': self.__json_hnd,
@@ -433,47 +470,17 @@ class v720_sta(log):
 
 
 def start_srv(_http_port = 80):
-    from v720_http import v720_http
-
-    devices = []
 
     def on_init_done(dev: v720_sta):
         print(f'''-------- Found device {dev.id} --------
 \033[92mLive capture: http://127.0.0.1:{_http_port}/dev/{dev.id}/live
 Snapshot: http://127.0.0.1:{_http_port}/dev/{dev.id}/snapshot\033[0m
 ''')
-        v720_http.add_dev(dev)
 
     def on_disconnect_dev(dev: v720_sta):
-        if dev in devices:
-            print(f'\033[31m-------- Device {dev.id} has been disconnected --------\033[0m')
-            devices.remove(dev)
-            v720_http.rm_dev(dev)
-        else:
-            print('Unknown dev')
+        print(f'\033[31m-------- Device {dev.id} has been disconnected --------\033[0m')
 
-    def tcp_thread():
-        with netsrv_tcp('', v720_sta.TCP_PORT) as _tcp:
-            while True:
-                _tcp.open()
-                fork = _tcp.fork()
-                if fork is not None:
-                    dev = v720_sta(fork, init_done_cb=on_init_done, disconnect_cb=on_disconnect_dev)
-                    devices.append(dev)
-
-    http_th = threading.Thread(target=v720_http.serve_forever, name='HTTP-SRV', args=(_http_port,))
-    http_th.setDaemon(True)
-    http_th.start()
-
-    tcp_th = threading.Thread(target=tcp_thread, name='TCP-SRV')
-    tcp_th.setDaemon(True)
-    tcp_th.start()
-
-    udp_th = threading.Thread(target=v720_sta.udp_solicitier, name='UDP-SRV')
-    udp_th.setDaemon(True)
-    udp_th.start()
-
-    tcp_th.join()
+    v720_sta.tcp_thread(_http_port, on_init_done, on_disconnect_dev)
 
 if __name__ == '__main__':
     start_srv()
