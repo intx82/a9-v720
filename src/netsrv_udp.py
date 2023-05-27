@@ -71,8 +71,10 @@ class netsrv_udp(netsrv):
 
     def recv(self) -> tuple:
         if self._forked:
-            while self._rcv_data.empty():
+            while self._rcv_data.empty() and not self.is_closed:
                 time.sleep(0.01)
+            if self.is_closed:
+                return None
 
             ret = self._rcv_data.get()
             self.dbg(f'Recv: {ret[0].hex() if len(ret[0]) < 64 else f"{ret[0][:64].hex()}..."}')

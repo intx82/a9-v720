@@ -134,6 +134,8 @@ class v720_sta(log):
         self._data_ch_probed = False
 
         self._retrans_tmr = None
+        self._udp_mtx = threading.Lock()
+        self._lstnr_cnt = 0
         self.set_tcp_conn(tcp_conn)
         if udp_conn is not None:
             self.set_udp_conn(udp_conn)
@@ -208,8 +210,8 @@ class v720_sta(log):
         
         if self._udp is not None:
             self._udp.close()
-            if self._udp._parrent is not None:
-                self._udp._parrent.close()
+            del self._udp
+            self._udp = None
 
         if self._disconnect_cb is not None and callable(self._disconnect_cb):
             self._disconnect_cb(self)
@@ -228,12 +230,14 @@ class v720_sta(log):
             self.warn(f'Unknown request {req}')
 
     def __udp_hnd(self):
-        while not self._udp.is_closed:
+        while self._udp and not self._udp.is_closed:
             self.__on_udp_rcv(self._udp.recv())
 
     def __on_udp_rcv(self, data):
         req = prot_udp.resp(data)
         self.dbg(f'Request (UDP): {req.__repr__()}')
+        if req is None:
+            return
 
         if f'{req.cmd}' in self._raw_hnd_lst:
             self._raw_hnd_lst[f'{req.cmd}'](self._udp, data)
@@ -242,7 +246,7 @@ class v720_sta(log):
 
     def __json_hnd(self, conn: netsrv, payload: bytes):
         pkg = prot_json_udp.resp(payload)
-        if f'{pkg.json["code"]}' in self._json_hnd_lst:
+        if pkg and f'{pkg.json["code"]}' in self._json_hnd_lst:
             self.dbg(f'Receive JSON: {pkg}')
             self._json_hnd_lst[f'{pkg.json["code"]}'](conn, pkg)
         else:
@@ -362,7 +366,9 @@ class v720_sta(log):
             self._retrans_tmr = None
 
     def cap_live(self):
-        self.__send_nat_probe(self._tcp)
+        if self._lstnr_cnt == 0:
+            self.__send_nat_probe(self._tcp)
+        self._lstnr_cnt += 1
 
     def cap_stop(self):
         with self._cb_mtx:
@@ -370,15 +376,28 @@ class v720_sta(log):
                 self.warn(f'Client still conected')
                 return
 
-        resp = self.__prep_fwd({
-            'code': cmd_udp.CODE_FORWARD_CLOSE_A_CLOSE_V
-        })
-        self.dbg(f'Send stop streaming (close_video/close_audio) {resp}')
-        self._tcp.send(resp.req())
-        self._first_retrans_send = False
-        if self._retrans_tmr:
-            self._retrans_tmr.cancel()
-            self._retrans_tmr = None
+        if self._lstnr_cnt == 0:
+            self.warn(f'Capture is not started')
+            return
+        elif self._lstnr_cnt == 1:
+            resp = self.__prep_fwd({
+                'code': cmd_udp.CODE_FORWARD_CLOSE_A_CLOSE_V
+            })
+            self.dbg(f'Send stop streaming (close_video/close_audio) {resp}')
+            self._tcp.send(resp.req())
+            self._first_retrans_send = False
+            if self._retrans_tmr:
+                self._retrans_tmr.cancel()
+                self._retrans_tmr = None
+
+            if self._udp:
+                with self._udp_mtx:
+                    self._udp.close()
+                    del self._udp
+                    self._udp = None
+            self._lstnr_cnt = 0
+        else:
+            self._lstnr_cnt -= 1
 
     def __on_open_video(self, conn: netsrv_tcp, pkg: prot_json_udp):
         self.warn(f'Starting video streaming')
@@ -419,22 +438,11 @@ class v720_sta(log):
         with self._frame_lst_mtx:
             self._frame_lst.append(pkg._pkg_id)
 
-        if pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_HEAD:
-            self._aframe = bytearray()
-            self._aframe.extend(pkg.payload)
-        elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_BODY:
-            self._aframe.extend(pkg.payload)
-        elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_END:
-            self._aframe.extend(pkg.payload)
-            with self._cb_mtx:
-                for cb in self._aframe_cb:
-                    cb(self, self._aframe)
-
-        elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_FINISH:
+        if pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_FINISH:
             self.dbg('Receive G711 frame')
             with self._cb_mtx:
                 for cb in self._aframe_cb:
-                    cb(self, self._aframe)
+                    cb(self, pkg.payload[:-5])
 
     def __on_mjpg_rcv_hnd(self, conn: netsrv_udp, payload: bytes):
         pkg = prot_udp.resp(payload)
@@ -474,6 +482,8 @@ def start_srv(_http_port = 80):
     def on_init_done(dev: v720_sta):
         print(f'''-------- Found device {dev.id} --------
 \033[92mLive capture: http://127.0.0.1:{_http_port}/dev/{dev.id}/live
+Only audio capture: http://127.0.0.1:{_http_port}/dev/{dev.id}/audio
+Only video capture: http://127.0.0.1:{_http_port}/dev/{dev.id}/video
 Snapshot: http://127.0.0.1:{_http_port}/dev/{dev.id}/snapshot\033[0m
 ''')
 
