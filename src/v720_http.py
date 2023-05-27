@@ -204,7 +204,7 @@ class v720_http(log, BaseHTTPRequestHandler):
                     "isBind": "8",
                     "domain": "v720.naxclow.com",
                     "updateUrl": None,
-                    "host": netcl_udp.get_ip(list(gws['default'].values())[0][0], 80),
+                    "host": netcl_udp.get_ip( list(gws['default'].values())[0][0] if len(gws['default']) > 0 else '10.42.0.1' , 80),
                     "currTime": f'{int(datetime.timestamp(datetime.now()))}',
                     "pwd": "deadbeef",
                     "version": None
