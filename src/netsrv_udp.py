@@ -13,6 +13,7 @@ class netsrv_udp(netsrv):
         self.is_closed = True
         self._forked = False
         self._socket = None
+        self._parrent = None
         self._frk_list = []
         self._rcv_data = Queue()
         self._waiter = None
@@ -49,6 +50,7 @@ class netsrv_udp(netsrv):
             rd = self._rcv_data.get()
             ret = netsrv_udp(rd[1][0], rd[1][1])
             ret._rcv_data.put(rd)
+            ret._parrent = self
             ret._socket = self._socket
             ret.is_closed = False
             ret._forked = True
@@ -57,6 +59,8 @@ class netsrv_udp(netsrv):
         return ret
 
     def close(self) -> None:
+        if not self.is_closed and self._forked:
+            self._parrent._frk_list.remove(self)
         self.is_closed = True
 
     def __enter__(self) -> netsrv_udp:
@@ -67,8 +71,10 @@ class netsrv_udp(netsrv):
 
     def recv(self) -> tuple:
         if self._forked:
-            while self._rcv_data.empty():
+            while self._rcv_data.empty() and not self.is_closed:
                 time.sleep(0.01)
+            if self.is_closed:
+                return None
 
             ret = self._rcv_data.get()
             self.dbg(f'Recv: {ret[0].hex() if len(ret[0]) < 64 else f"{ret[0][:64].hex()}..."}')

@@ -69,6 +69,7 @@ def parse_dt(s: str):
             int(s[2]) if len(s) > 2 else datetime.now().minute - 2
         )
 
+
 def parse_dt_test():
     ret = parse_dt('202302101319')
     assert(ret[0] == 20230210)
@@ -80,36 +81,23 @@ def parse_dt_test():
     assert(ret[1] == 13)
     assert(ret[2] == 19)
 
-
     start_srv()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     arg_gr = parser.add_mutually_exclusive_group(required=True)
-    arg_gr.add_argument('-d', '--download', type=str,
-                        help='Download file with provided datetime. Format: [date]-[hour]-[miute], example: 20230131-22-29')
-    arg_gr.add_argument('-f', '--filelist', action="store_true",
-                        help='List available files (recorded date\'s and time\'s)')
-    arg_gr.add_argument('-l', '--live', action="store_true",
-                        help='Show live stream')
-    arg_gr.add_argument('-s', '--server', action='store_true',
-                        help='Start a fake-server', default=False)
-    # arg_gr.add_argument('--set-ap-pwd', type=str,
-    #                     help='Set AP password')
-    arg_gr.add_argument('--set-wifi', nargs=2,
-                        help='Try to connect to specified AP (--set-wifi AP PWD)')
-    parser.add_argument('-o', '--output', type=str,
-                        help='Output filename', default=None)
-    parser.add_argument('-i', '--irled', action='store_true',
-                        help='Enable IR led(lens)', default=False)
-    parser.add_argument('-r', '--flip', action='store_true',
-                        help='Flip camera', default=False)
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='Enable debug logs', default=False)
-    parser.add_argument('--proxy-port', type=int,
-                        help='HTTP server port, use for proxying it via NGINX, etc', default=80)
-    parser.add_argument('-c', '--host', type=str,
-                        help='Host and port (192.168.169.1:6123)', default=f"{HOST}:{PORT}")
+    arg_gr.add_argument('-d', '--download', type=str, help='Download file with provided datetime. Format: [date]-[hour]-[miute], example: 20230131-22-29')
+    arg_gr.add_argument('-f', '--filelist', action="store_true", help='List available files (recorded date\'s and time\'s)')
+    arg_gr.add_argument('-l', '--live', action="store_true", help='Show live stream')
+    arg_gr.add_argument('-s', '--server', action='store_true', help='Start a fake-server', default=False)
+    arg_gr.add_argument('--set-wifi', nargs=2, help='Try to connect to specified AP (--set-wifi AP PWD)')
+    parser.add_argument('-o', '--output', type=str, help='Output filename', default=None)
+    parser.add_argument('-i', '--irled', action='store_true', help='Enable IR led(lens)', default=False)
+    parser.add_argument('-r', '--flip', action='store_true', help='Flip camera', default=False)
+    parser.add_argument('-v', '--verbose', action='store_true', help='Enable debug logs', default=False)
+    parser.add_argument('--proxy-port', type=int, help='HTTP server port, use for proxying it via NGINX, etc', default=80)
+    parser.add_argument('-c', '--host', type=str, help='Host and port (192.168.169.1:6123)', default=f"{HOST}:{PORT}")
 
     args = parser.parse_args()
 
@@ -120,6 +108,7 @@ if __name__ == '__main__':
         print(f'''-------- A9 V720 fake-server starting. --------
 \033[92mDevice list: http://127.0.0.1:{args.proxy_port}/dev/list
 Live capture: http://127.0.0.1:{args.proxy_port}/dev/[CAM-ID]/live
+Audio capture: http://127.0.0.1:{args.proxy_port}/dev/[CAM-ID]/audio
 Snapshot: http://127.0.0.1:{args.proxy_port}/dev/[CAM-ID]/snapshot\033[0m
 ''')
         start_srv(args.proxy_port)
@@ -145,9 +134,9 @@ Snapshot: http://127.0.0.1:{args.proxy_port}/dev/[CAM-ID]/snapshot\033[0m
                     output = f"{file_info['fileName']}.avi"
 
                 print('Found file @', dt[0], dt[1], dt[2], ':',
-                    file_info['fileName'], ' with size:', file_info['fileSize'])
+                      file_info['fileName'], ' with size:', file_info['fileSize'])
                 download(cam, args.output, dt[0],
-                        dt[1], dt[2], file_info['fileSize'])
+                         dt[1], dt[2], file_info['fileSize'])
             elif args.live:
                 cam.ir_led(args.irled)
                 cam.flip(args.flip)

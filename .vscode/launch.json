@@ -1,0 +1,20 @@
+{
+    // Используйте IntelliSense, чтобы узнать о возможных атрибутах.
+    // Наведите указатель мыши, чтобы просмотреть описания существующих атрибутов.
+    // Для получения дополнительной информации посетите: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "a9-server",
+            "type": "python",
+            "request": "launch",
+            "program": "src/a9_naxclow.py",
+            "console": "integratedTerminal",
+            "args": [
+                "-s",
+                "-v"
+            ],
+            "justMyCode": true
+        }
+    ]
+}
