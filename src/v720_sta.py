@@ -2,7 +2,7 @@ from __future__ import annotations
 import random
 import threading
 from datetime import datetime
-
+from queue import Queue
 from log import log
 
 from netsrv import netsrv
@@ -111,8 +111,8 @@ class v720_sta(log):
             f'{cmd_udp.CODE_FORWARD_OPEN_A_OPEN_V}': self.__on_open_video,
             f'{cmd_udp.CODE_FORWARD_CLOSE_A_CLOSE_V}': self.__on_close_video,
         }
-
-        self._vframe = bytearray()
+        
+        self._vframe = Queue()
         self._aframe = bytearray()
         self._frame_lst_mtx = threading.Lock()
         self._frame_lst = []
@@ -451,19 +451,20 @@ class v720_sta(log):
 
         if pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_HEAD \
                 or pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_FINISH:
-
-            self._vframe = bytearray()
-            self._vframe.extend(pkg.payload)
+            self._vframe.put(pkg.payload)
         elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_BODY:
-            self._vframe.extend(pkg.payload)
+                self._vframe.put(pkg.payload)
         elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_END:
-            self._vframe.extend(pkg.payload[:-5])
+            self._vframe.put(pkg.payload[:-5])
             sz = int.from_bytes(pkg.payload[-4:], byteorder='little')
-            self.dbg(f'Receive H264 frame sz: ({sz} <> {len(self._vframe)})')
+            self.dbg(f'Receive H264 frame sz: {sz}')
 
             with self._cb_mtx:
                 for cb in self._vframe_cb:
-                    cb(self, self._vframe)
+                    frame = bytearray()
+                    while not self._vframe.empty():
+                        frame.extend(self._vframe.get(False))
+                    cb(self, frame)
 
             if not self._first_retrans_send:
                 self.__retransmission_confirm(sent_empty=True)
