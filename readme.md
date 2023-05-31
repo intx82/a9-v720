@@ -4,7 +4,7 @@
 
 **This app has been tested only with camera version 202212011602 and only which use Chinese V720 APP and only in AP mode. See pictures of camera PCB below**
 
-Topic on 'home-assistant' forum: <a href="https://community.home-assistant.io/t/popular-a9-mini-wi-fi-camera-the-ha-challenge">https://community.home-assistant.io/t/popular-a9-mini-wi-fi-camera-the-ha-challenge</a>
+Topic on 'home-assistant' forum: <a href="https://community.home-assistant.io/t/popular-a9-mini-wi-fi-camera-the-ha-challenge/230108">https://community.home-assistant.io/t/popular-a9-mini-wi-fi-camera-the-ha-challenge/230108</a>
 
 ## How to use script and short brief
 
