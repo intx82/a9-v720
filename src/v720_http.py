@@ -87,7 +87,7 @@ class v720_http(log, SimpleHTTPRequestHandler):
 
     def __video_hnd(self, dev):
 
-        q = Queue(1024) # 15kb * 1024 ~ 15mb per camera
+        q = Queue(16384) # 15kb * 1024 ~ 15mb per camera
         def _on_video_frame(dev, frame):
             q.put(frame)
 
@@ -127,7 +127,7 @@ class v720_http(log, SimpleHTTPRequestHandler):
             self.err(f'Connection closed by peer @ {dev.id} ({self.client_address[0]})')
 
     def __audio_hnd(self, dev):
-        q = Queue(1024)  # 15kb * 1024 ~ 15mb per camera
+        q = Queue(16384)  # 15kb * 1024 ~ 15mb per camera
 
         def _on_audio_frame(dev, frame):
             q.put(frame)
