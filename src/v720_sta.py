@@ -160,15 +160,13 @@ class v720_sta(log):
 
     def set_tcp_conn(self, tcp_conn: netsrv_tcp):
         self._tcp = tcp_conn
-        self._tcpth = threading.Thread(
-            target=self.__tcp_hnd, name=f'{tcp_conn}')
+        self._tcpth = threading.Thread(target=self.__tcp_hnd, name=f'{tcp_conn}')
         self._tcpth.setDaemon(True)
         self._tcpth.start()
 
     def set_udp_conn(self, udp_conn: netsrv_udp):
         self._udp = udp_conn
-        self._udpth = threading.Thread(
-            target=self.__udp_hnd, name=f'{udp_conn}')
+        self._udpth = threading.Thread(target=self.__udp_hnd, name=f'{udp_conn}')
         self._udpth.setDaemon(True)
         self._udpth.start()
 

@@ -89,6 +89,8 @@ class v720_http(log, SimpleHTTPRequestHandler):
 
         q = Queue(16384) # 15kb * 1024 ~ 15mb per camera
         def _on_video_frame(dev, frame):
+            if q.full():
+                q.get()
             q.put(frame)
 
         dev.set_vframe_cb(_on_video_frame)
@@ -130,6 +132,9 @@ class v720_http(log, SimpleHTTPRequestHandler):
         q = Queue(16384)  # 15kb * 1024 ~ 15mb per camera
 
         def _on_audio_frame(dev, frame):
+            if q.full():
+                q.get()
+
             q.put(frame)
 
         dev.set_aframe_cb(_on_audio_frame)
@@ -171,6 +176,8 @@ class v720_http(log, SimpleHTTPRequestHandler):
         self.warn(f'Snapshot request @ {dev.id} ({self.client_address[0]})')
         q = Queue(1)
         def _on_video_frame(dev, frame):
+            if q.full():
+                q.get()
             q.put(frame)
 
         dev.set_vframe_cb(_on_video_frame)
