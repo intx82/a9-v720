@@ -207,9 +207,10 @@ class v720_sta(log):
             self.__on_tcp_rcv(self._tcp.recv())
         
         if self._udp is not None:
-            self._udp.close()
-            del self._udp
-            self._udp = None
+            with self._udp_mtx:
+                self._udp.close()
+                del self._udp
+                self._udp = None
 
         if self._disconnect_cb is not None and callable(self._disconnect_cb):
             self._disconnect_cb(self)
