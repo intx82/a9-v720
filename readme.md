@@ -1,143 +1,201 @@
 # A9 V720 Naxclow Camera 
 
-<img src="https://raw.githubusercontent.com/intx82/a9-v720/master/img/0.jpg" width=480px/>
+![Camera Image](https://raw.githubusercontent.com/intx82/a9-v720/master/img/0.jpg)
 
-**This app has been tested only with camera version 202212011602 and only which use Chinese V720 APP and only in AP mode. See pictures of camera PCB below**
+**Note:** This application has been tested only with camera version `202212011602` that uses the Chinese V720 app in AP mode. Please refer to the PCB images of the camera provided below for verification.
 
-Topic on 'home-assistant' forum: <a href="https://community.home-assistant.io/t/popular-a9-mini-wi-fi-camera-the-ha-challenge/230108">https://community.home-assistant.io/t/popular-a9-mini-wi-fi-camera-the-ha-challenge/230108</a>
+Discussion on the Home Assistant forum: [Popular A9 Mini Wi-Fi Camera - The HA Challenge](https://community.home-assistant.io/t/popular-a9-mini-wi-fi-camera-the-ha-challenge/230108)
 
-## How to use script and short brief
+---
 
-Then, turn on the camera and attach to their Wifi-AP. AP name should(could) starts from prefix `Nax` (as i suppose it means name of manufacturer: Naxclow) For example, i have: `Nax_210000211234`
+## How to Use the Script
 
-Camera should give IP in range 192.168.169.100 / 255.255.255.0. After, you can try to connect with this script. 
+This guide will help you set up and use the A9 V720 Naxclow Camera in two modes:
 
-By default, camera has IP 192.168.169.1 and didn't have any Web-page to configure it. Camera can be configured only via mobile-application.
+1. **AP Mode (Access Point Mode):** The camera acts as a Wi-Fi hotspot, and you connect directly to it.
+2. **STA Mode (Station Mode):** The camera connects to your existing Wi-Fi network.
 
-Also, camera networking could be configured from UART via `ifconfig` and `wifi` commands.
+---
 
-**I would not recommend connecting camera to the internet, due to it downloads from Chinese server update package**
+## Part 1: Configuring and Using the Camera in **AP Mode**
 
-- List of all recorded videos inside camera:
+### 1. Connect to the Camera's Wi-Fi Access Point (AP)
+
+- **Power On the Camera:** Turn on your A9 V720 Naxclow camera.
+- **Connect to the Camera's Wi-Fi:** On your device, connect to the camera's Wi-Fi AP. The AP name typically starts with the prefix `Nax`, which likely refers to the manufacturer Naxclow. For example, `Nax_210000211234`.
+
+### 2. Verify IP Address
+
+- **IP Range:** The camera should assign an IP address in the range `192.168.169.x` with a subnet mask of `255.255.255.0`.
+- **Default IP:** By default, the camera's IP address is `192.168.169.1`.
+- **Configuration Interface:** The camera does not have a web interface for configuration; it can only be configured via the mobile application.
+- **UART Configuration (Optional):** If you have UART access, you can configure the camera's network settings using the `ifconfig` and `wifi` commands.
+
+> **Warning:** We do not recommend connecting the camera to the internet, as it may download update packages from external servers.
+
+### 3. List Recorded Videos on the Camera
+
+To list all recorded videos stored on the camera, use the following command:
+
+```
+python3 src/a9_naxclow.py -f
+```
+
+- The `-f` argument can also be written as `--filelist`.
+- **File Naming Convention:** Camera filenames are in a datetime format containing full date, hour, and minute information, e.g., `202301312016.avi`.
+- **Storage Structure:** On the SD card, videos are saved in different folders by date, formatted as `[date]/[hour]/[minute].avi` (e.g., `/20230131/20/16.avi`).
+
+### 4. Download a Selected Video File
+
+To download a specific video file from the camera, use one of the following commands:
+
+```
+python3 src/a9_naxclow.py -d 20230131-20-16 -o out.avi
+```
+
+or
+
+```
+python3 src/a9_naxclow.py -d 202301312016 -o out.avi
+```
+
+- **Syntax Explanation:**
+
+  ```
+  python3 src/a9_naxclow.py -d [date-hour-minute] -o [output-file]
+  ```
+
+- The `-d` argument can also be written as `--download`, and `-o` as `--output`.
+- **Date and Time Format:** The date, hour, and minute can be obtained from the output of the `-f` command.
+- **Default Output File:** If the `-o` argument is not provided, the script will save the file as `out.avi`.
+- **Recording Note:** While downloading a file from the camera, recording is paused.
+
+### 5. Live Video Streaming
+
+To start a live video stream, use the following command:
+
+```
+python3 src/a9_naxclow.py -l -o live.avi -r -i
+```
+
+- **Save Stream to File:** Use the `-o` argument to specify an output file to save the captured stream.
+- **Enable IR View:** Use `-i` or `--irled` to enable infrared (IR) mode.
+- **Flip Camera View:** Use `-r` or `--flip` to flip the camera view.
+- **Audio Note:** There is no audio in the live recording by default. However, audio can be captured and saved by modifying the `show_live()` function in the `a9_live.py` file.
+- **Audio Format:** The audio stream uses the G.711 A-law WAV format.
+
+---
+
+## Part 2: Configuring and Using the Camera in **STA Mode**
+
+### 1. Connect the Camera to an Existing Wi-Fi Network
+
+To connect the camera to your existing Wi-Fi network, use the following command:
+
+```
+python3 src/a9_naxclow.py --set-wifi [SSID] [PWD]
+```
+
+- **Parameters:**
+  - `SSID`: The name of your Wi-Fi access point.
+  - `PWD`: The password for your Wi-Fi network.
+- **Example:** To connect to an access point named `mifi` with the password `mifimifi`:
+
+  ```
+  python3 src/a9_naxclow.py --set-wifi mifi mifimifi
+  ```
+
+- **Password Requirements:** The password should be at least 8 characters long but not exceed 36 characters.
+
+### 2. Starting a Fake Server
+
+To use the camera over your network, you may need to start a fake server. This is because the camera tries to connect to its cloud servers, and by faking these, we can capture the camera's stream locally.
+
+#### Start the Fake Server
+
+Use the following command to start the fake server:
+
+```
+python3 src/a9_naxclow.py -s
+```
+
+**Important Configuration Steps:**
+
+- **DNS Redirection:** For the fake server to function correctly, you must set up DNS redirection on your home router. Redirect all domains ending with `*.naxclow.com` (e.g., `v720.naxclow.com`, `v720.p2p.naxclow.com`, `p2p.v720.naxclow.com`) to your server's IP address.
+- **MQTT Broker:** Ensure that an MQTT broker is installed on your server, or redirect `p2p.v720.naxclow.com` to a public MQTT broker.
+- **Further Details:** For more information on how this works, please refer to [fake_server.md](fake_server.md).
+
+**After Configuration:**
+
+- **Web Server Activation:** The fake server will start a web server and listen for incoming messages from the camera.
+- **Available Cameras:** Access the list of available cameras at `http://[FAKE_SERVER_IP]/dev/list` (returns a JSON array).
+- **Live Stream and Snapshot:**
+  - Live MJPEG video stream: `http://[FAKE_SERVER_IP]/dev/[CAM_ID]/live`
+  - Snapshot: `http://[FAKE_SERVER_IP]/dev/[CAM_ID]/snapshot`
+
+**Port Configuration Notes:**
+
+- **Port 80 Access Issues:** If you encounter issues opening TCP port 80 without root privileges, consider the following solutions:
+  - Run the server as root (e.g., using `sudo`).
+  - Allow non-privileged users to use port 80 by executing:
+
     ```
-    python3 src/a9_naxclow.py -f
+    sudo sysctl -w net.ipv4.ip_unprivileged_port_start=80
     ```
 
-    Arg `-f` could be replaced `--filelist`
+  - Ensure that no other HTTP server is running on your system.
+- **Proxy Configuration:** If you are starting the fake server through an Nginx proxy, use the `--proxy-port` argument to change the internal HTTP port of the fake server.
 
-    Camera filenames have datetime format with full date/hour/minute information. 
-    
-    For example: `202301312016.avi`. 
-    
-    But on SD card will be saved in different folders by date, `[date]/[hour]/[minute].avi`. (/20230131/20/16.avi)
+---
 
-- Downloading selected video file:
-    
-    ```
-    python3 src/a9_naxclow.py -d 20230131-20-16 -o out.avi
-    ```
+## Troubleshooting
 
-    or 
+If you encounter any issues:
 
-    ```
-    python3 src/a9_naxclow.py -d 202301312016 -o out.avi
-    ```
+- **Verbose Mode:** Add the `-v` or `--verbose` argument to the command for detailed logs.
+- **Seeking Help:** If the problem persists, please open a new issue on GitHub with the full logs attached. We are here to help!
 
-    Where syntax are:
-        src/a9_naxclow.py -d [date-hour-minute] -o [output-file]
+---
 
-    Arg `-d` could be replaced `--download` and `-o` to `--output`
+## Additional Information
 
-    Date/Hour/Minute could be taken from first command (ie `-f` )
-    if -o arg is not provided, the script will save the file as `out.avi`
+### Original Source
 
-    While downloading file from camera, recording is not going.
+- **Disassembled App Sources:** The disassembled sources of the original V720 app can be found in the `orig-app` folder.
+- **Early Script Version:** A very early version of the A9 script is available as `a9_old.py`.
 
-- Live video stream:
-    ```
-    python3 src/a9_naxclow.py -l -o live.avi -r -i
-    ```
+### UART Logs
 
-    To write captured stream into file use also arg `-o` as it was in previous example.
-
-    To enable IR view use arg `-i` or `--irled` and to flip camera use arg `-r` or `--flip`
-
-    There are no audio inside live record, but it could be succesfull captured and saved, check show_live() function in a9_live.py file
-
-    Audio stream has g711-alaw wav format
-- Connect to the existed WIFI AP:
-    ```
-    python3 src/a9_naxclow.py --set-wifi SSID PWD
-    ```
-    Where: 
-        
-        - SSID - yours WIFI AP ssid (ie name)
-        - PWD - password
-
-    for example, connect to `mifi` access point with password `mifimifi`
-    
-    ```
-    python3 src/a9_naxclow.py --set-wifi mifi mifimifi
-    ```
-
-    PWD (password) should be at least 8 chars length, but not more 36
-
-- Starting a fake-server
-    ```bash
-    python3 src/a9_naxclow.py -s
-    ```
-
-    **To properly work 'fake server', user must make DNS redirect on own (home) router - domains '*.naxclow.com' ('v720.naxclow.com', 'v720.p2p.naxclow.com', 'p2p.v720.naxclow.com') to own server IP**
-
-    **Also, on the server must be installed any MQTT broker or 'p2p.v720.naxclow.com' should be redirected to any public mqtt broker**
-
-    **details how it's works could be found in <a href="fake_server.md">fake_server.md</a>**
-
-    After this part, fake server bring up the web server and listening for camera incoming messages.
-
-    The list of available cameras will be available at `http://[FAKE_SRV_IP]/dev/list` (now as json array)
-
-    After connection camera, MJPEG video stream available at `http://[FAKE_SRV_IP]/dev/[CAM_ID]/live`, snapshot - `http://[FAKE_SRV_IP]/dev/[CAM_ID]/snapshot`
-
-    > There could be issues with opening tcp 80 port without root restriction, there are two ways to avoid it:
-    >    - Run server from root (ie sudo)
-    >    - Allow use this port by non-priviledged user `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=80`
-    >    - Be sure that you are not running any other HTTP server in the system
-
-    if you are starting fake-server thru nginx proxy, use argument `--proxy-port` to change internal http port of fake server
-
-    To connect camera to the Wi-Fi might be used `--set-wifi` argument. See above
-
-**If you faced any issue, try to add `-v (--verbose)` argument to the tool, it may help, if not, don't hesitate, open a new issue, here, in github with a full logs**
-
-## Original source
-
-Disassmbled original app (V720) sources could be found in orig-app folder. Very very early version of a9 script could be found in a9_old.py
-
-## UART logs
-
-Found some manufacturer passwords inside UART logs
+We discovered some manufacturer passwords in the UART logs:
 
 ```
 com.naxclow.Camera
 
-[WLAN_easyfReadId - 136]-Debue:  SET wifi = (NAXCLOW)  (34974033A) 
+[WLAN_easyfReadId - 136]-Debug: SET wifi = (NAXCLOW)  (34974033A) 
 _wifi_easyjoin: ssid:NAXCLOW bssid:00:00:00:00:00:00 key:34974033A
 
-_wifi_easyjoin: ssid:[ap0] bssid:00:00:00:00:00:00 key:1213aCBVDiop@  <--- Here ssid from most powerful AP in range
-
+_wifi_easyjoin: ssid:[ap0] bssid:00:00:00:00:00:00 key:1213aCBVDiop@  <-- Here, the SSID is from the most powerful AP in range
 ```
-Full logs could be found in docs dir. <docs/uart.log>
 
-## Camera photos
+- **Full Logs:** The complete logs are available in the `docs` directory at [`docs/uart.log`](docs/uart.log).
 
-IP-camera has been built around BL7252 MCU. MCU SDK could be found at github as bdk_rtt (https://github.com/YangAlex66/bdk_rtt) (original link https://github.com/bekencorp/bdk_rtt seems to be dead now)
+### Camera Photos
 
-<img src="https://raw.githubusercontent.com/intx82/a9-v720/master/img/4.jpg" width=480px/>
+- **Hardware Details:** The IP camera is built around the BL7252 MCU.
+- **SDK Availability:** The MCU SDK is available on GitHub as [bdk_rtt](https://github.com/YangAlex66/bdk_rtt). Please note that the original link (`https://github.com/bekencorp/bdk_rtt`) appears to be inactive.
+- **Image Reference:**
 
-All photos in img folder
+  ![Camera PCB](https://raw.githubusercontent.com/intx82/a9-v720/master/img/4.jpg)
 
-## Where to buy this camera
+- **Additional Photos:** All photos are available in the `img` folder.
 
-On aliexpress, could be found by name `A9 V720 camera` and on 2023-01-31 costs 5.2 euro
+### Where to Buy This Camera
 
+- **Purchase Information:** The camera can be found on AliExpress by searching for `A9 V720 camera`.
+- **Price Reference:** As of January 31, 2023, the camera was priced at approximately €5.20.
+
+---
+
+We hope this guide helps you in using the A9 V720 Naxclow Camera with our script. If you have any questions or need further assistance, please feel free to reach out.
+
+---
