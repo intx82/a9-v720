@@ -121,6 +121,10 @@ python3 src/a9_naxclow.py -s
 
 **Important Configuration Steps:**
 
+![Camera Image](https://raw.githubusercontent.com/intx82/a9-v720/master/img/dns.png)
+
+> in my case 192.168.2.3 is a RPi server IP
+
 - **DNS Redirection:** For the fake server to function correctly, you must set up DNS redirection on your home router. Redirect all domains ending with `*.naxclow.com` (e.g., `v720.naxclow.com`, `v720.p2p.naxclow.com`, `p2p.v720.naxclow.com`) to your server's IP address.
 - **MQTT Broker:** Ensure that an MQTT broker is installed on your server, or redirect `p2p.v720.naxclow.com` to a public MQTT broker.
 - **Further Details:** For more information on how this works, please refer to [fake_server.md](fake_server.md).
