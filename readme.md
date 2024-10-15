@@ -125,7 +125,7 @@ python3 src/a9_naxclow.py -s
 
 > in my case 192.168.2.3 is a RPi server IP
 
-- **DNS Redirection:** For the fake server to function correctly, you must set up DNS redirection on your home router. Redirect all domains ending with `*.naxclow.com` (e.g., `v720.naxclow.com`, `v720.p2p.naxclow.com`, `p2p.v720.naxclow.com`) to your server's IP address.
+- **DNS Redirection:** For the fake server to function correctly, you must set up DNS redirection on your home router. Redirect all domains ending with `*.naxclow.com` (e.g., `v720.naxclow.com`, `v720.p2p.naxclow.com`, `p2p.v720.naxclow.com`) to your server's IP address. See [DNS Redirection](#dns-redirection) below for more specific instructions.
 - **MQTT Broker:** Ensure that an MQTT broker is installed on your server, or redirect `p2p.v720.naxclow.com` to a public MQTT broker.
 - **Further Details:** For more information on how this works, please refer to [fake_server.md](fake_server.md).
 
@@ -151,6 +151,30 @@ python3 src/a9_naxclow.py -s
 - **Proxy Configuration:** If you are starting the fake server through an Nginx proxy, use the `--proxy-port` argument to change the internal HTTP port of the fake server.
 
 ---
+
+## DNS Redirection
+
+DNS Redirection is necessary for the Fake Server to work, but it can be tricky to setup. The most typical domestic setup includes a router which acts as a DHCP and DNS server. Depending on the router model and firmware, you might be able to add the DNS redirections directly in the router. A more common situation, though, is that the router is very limited in functionality.
+
+In those cases, you will need to use a secondary DNS server with more capabilities. This might be a Rasperry Pi, or another, more configurable router. 
+
+Here follows an example on how to setup such a secondary DNS on a Raspberry Pi, running Ubuntu, at IP address 192.168.1.2 (please substitute with your own address).
+
+The strategy is this: In your main router (which acts as DHCP server), you need to change it to tell all DHCP clients to use your RPi as DNS, so you'll need to change the DNS to 192.168.1.2. Some routers (e.g. running Asus Merlin firmware), can override the DNS server on a per-device basis. If your router can do that, you only need to change the DNS for your A9 cams.
+
+On the RPi, you'll install dnsmasq, and have it send all requests "upstream" to your real DNS (I highly recommend using 1.1.1.1, but you can use the DNS provided by your ISP), except for requests to naxclow.
+
+On the RPi, run:
+```
+sudo apt install dnsmasq
+```
+
+then (as root) create `/etc/dnsmasq.d/a9-camera` with the following contents:
+```
+server=/naxclow.com/192.168.1.5
+address=/naxclow.com/192.168.1.5
+``` 
+but replace 192.168.1.5 with the IP of the computer that actually runs the fake server.
 
 ## Troubleshooting
 
