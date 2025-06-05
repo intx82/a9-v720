@@ -7,6 +7,8 @@ from datetime import datetime
 from tqdm.auto import tqdm
 from log import log
 import logging
+import random
+import socket
 
 from v720_ap import v720_ap
 from v720_sta import start_srv
@@ -20,6 +22,31 @@ from a9_live import show_live
 
 HOST = "192.168.169.1"
 PORT = 6123
+
+
+def send_ap_wifi_credentials(ip: str, ssid: str, pwd: str, port: int = 8090):
+    """Send Wi-Fi credentials via a simple UDP packet.
+
+    The packet format follows community findings and is:
+    f[SSID]&&&[SSID]###[PWD][RND4]
+
+    :param ip: Camera IP address in AP mode
+    :param ssid: Access point name
+    :param pwd: Wi-Fi password
+    :param port: UDP port used for configuration
+    """
+
+    rnd = random.randint(0, 9999)
+    data = f"f{ssid}&&&{ssid}###{pwd}{rnd:04d}".encode('utf-8')
+
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.settimeout(2)
+        s.sendto(data, (ip, port))
+        try:
+            resp, _ = s.recvfrom(128)
+            print(f"Camera response: {resp}")
+        except socket.timeout:
+            print("No response from camera")
 
 
 def print_filelist(cam):
@@ -97,7 +124,13 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--flip', action='store_true', help='Flip camera', default=False)
     parser.add_argument('-v', '--verbose', action='store_true', help='Enable debug logs', default=False)
     parser.add_argument('--proxy-port', type=int, help='HTTP server port, use for proxying it via NGINX, etc', default=80)
-    parser.add_argument('-c', '--host', type=str, help='Host and port (192.168.169.1:6123)', default=f"{HOST}:{PORT}")
+    parser.add_argument('-c', '--host', type=str, help='Host and port (192.168.169.1:6123)', default=None)
+    parser.add_argument('--ip', type=str, help='Camera IP address', default=HOST)
+    parser.add_argument('--camera-port', type=int, help='Camera TCP port', default=PORT)
+    parser.add_argument('--ssid', type=str, help='Configure camera Wi-Fi SSID')
+    parser.add_argument('--username', type=str, help='Optional username')
+    parser.add_argument('--password', type=str, help='Wi-Fi or camera password')
+    parser.add_argument('--wifi-port', type=int, help='UDP port used for Wi-Fi config', default=8090)
 
     args = parser.parse_args()
 
@@ -113,10 +146,18 @@ Snapshot: http://127.0.0.1:{args.proxy_port}/dev/[CAM-ID]/snapshot\033[0m
 ''')
         start_srv(args.proxy_port)
     else:
-        host = args.host.split(':', 2)
-        port = PORT if len(host) == 1 else int(host[1])
+        if args.host is not None:
+            host_parts = args.host.split(':', 2)
+            host = host_parts[0]
+            port = PORT if len(host_parts) == 1 else int(host_parts[1])
+        else:
+            host = args.ip
+            port = args.camera_port
 
-        with netcl_tcp(host[0], port) as sock:
+        if args.ssid and args.password:
+            send_ap_wifi_credentials(host, args.ssid, args.password, args.wifi_port)
+
+        with netcl_tcp(host, port) as sock:
             cam = v720_ap(sock)
             cam.init_live_motion()
 

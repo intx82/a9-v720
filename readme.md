@@ -107,6 +107,14 @@ python3 src/a9_naxclow.py --set-wifi [SSID] [PWD]
 
 - **Password Requirements:** The password should be at least 8 characters long but not exceed 36 characters.
 
+You can also pass additional parameters when running the script:
+
+- `--ip` – camera IP address in AP mode (default `192.168.169.1`).
+- `--camera-port` – TCP port used to communicate with the camera (default `6123`).
+- `--ssid` and `--password` – send Wi-Fi credentials via a UDP packet to quickly switch the camera to station mode.
+- `--wifi-port` – UDP port used for the Wi-Fi configuration (default `8090`).
+- `--username` – optional username reserved for future use.
+
 ### 2. Starting a Fake Server
 
 To use the camera over your network, you may need to start a fake server. This is because the camera tries to connect to its cloud servers, and by faking these, we can capture the camera's stream locally.
