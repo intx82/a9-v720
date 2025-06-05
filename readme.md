@@ -144,6 +144,15 @@ python3 src/a9_naxclow.py -s
 - **Live Stream and Snapshot:**
   - Live MJPEG video stream: `http://[FAKE_SERVER_IP]/dev/[CAM_ID]/live`
   - Snapshot: `http://[FAKE_SERVER_IP]/dev/[CAM_ID]/snapshot`
+  - Rotate image 90° clockwise each call: `http://[FAKE_SERVER_IP]/dev/[CAM_ID]/rotate`
+  - Toggle mirroring: `http://[FAKE_SERVER_IP]/dev/[CAM_ID]/mirror`
+
+You can also start the HTTP server or configure Wi-Fi using the `cam_reverse.py` utility:
+
+```bash
+python3 src/cam_reverse.py http_server --port 8080
+python3 src/cam_reverse.py pair --ssid MyAP --password secret --ip 192.168.169.1
+```
 
 **Port Configuration Notes:**
 

@@ -7,6 +7,8 @@ import json
 
 from queue import Queue, Empty
 import socket
+import io
+from PIL import Image
 from log import log
 
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -24,11 +26,14 @@ class v720_http(log, SimpleHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
     _dev_lst = {}
     _dev_hnds = {}
+    _dev_params = {}
 
     @staticmethod
     def add_dev(dev):
         # if dev.id not in v720_http._dev_lst:
         v720_http._dev_lst[dev.id] = dev
+        if dev.id not in v720_http._dev_params:
+            v720_http._dev_params[dev.id] = {"rotate": 0, "mirror": False}
 
     @staticmethod
     def rm_dev(dev):
@@ -57,6 +62,8 @@ class v720_http(log, SimpleHTTPRequestHandler):
         cls._dev_hnds["video"] = ret.__video_hnd
         cls._dev_hnds["audio"] = ret.__audio_hnd
         cls._dev_hnds["snapshot"] = ret.__snapshot_hnd
+        cls._dev_hnds["rotate"] = ret.__rotate_hnd
+        cls._dev_hnds["mirror"] = ret.__mirror_hnd
         return ret
 
     def __init__(self, request, client_address, server) -> None:
@@ -105,6 +112,18 @@ class v720_http(log, SimpleHTTPRequestHandler):
             dev.cap_live()
             while not self.wfile.closed:
                 img = q.get(timeout=5)
+                params = v720_http._dev_params.get(dev.id, {"rotate": 0, "mirror": False})
+                if params["rotate"] or params["mirror"]:
+                    with Image.open(io.BytesIO(img)) as im:
+                        if params["mirror"]:
+                            im = im.transpose(Image.FLIP_LEFT_RIGHT)
+                        rot = params["rotate"] % 4
+                        deg = [0, 270, 180, 90][rot]
+                        if deg:
+                            im = im.rotate(deg, expand=True)
+                        buf = io.BytesIO()
+                        im.save(buf, format='JPEG')
+                        img = buf.getvalue()
                 self.wfile.write(b"--jpgboundary\r\n")
                 self.send_header('Content-type', 'image/jpeg')
                 # self.send_header('Content-length', len(img))
@@ -184,6 +203,18 @@ class v720_http(log, SimpleHTTPRequestHandler):
         try:
             dev.cap_live()
             img = q.get(timeout=5)
+            params = v720_http._dev_params.get(dev.id, {"rotate": 0, "mirror": False})
+            if params["rotate"] or params["mirror"]:
+                with Image.open(io.BytesIO(img)) as im:
+                    if params["mirror"]:
+                        im = im.transpose(Image.FLIP_LEFT_RIGHT)
+                    rot = params["rotate"] % 4
+                    deg = [0, 270, 180, 90][rot]
+                    if deg:
+                        im = im.rotate(deg, expand=True)
+                    buf = io.BytesIO()
+                    im.save(buf, format='JPEG')
+                    img = buf.getvalue()
             self.send_response(200)
             self.send_header('Content-type', 'image/jpeg')
             self.send_header('Content-length', len(img))
@@ -200,6 +231,18 @@ class v720_http(log, SimpleHTTPRequestHandler):
             dev.unset_vframe_cb(_on_video_frame)
             dev.cap_stop()
 
+    def __rotate_hnd(self, dev):
+        p = v720_http._dev_params[dev.id]
+        p['rotate'] = (p['rotate'] + 1) % 4
+        self.send_response(204)
+        self.end_headers()
+
+    def __mirror_hnd(self, dev):
+        p = v720_http._dev_params[dev.id]
+        p['mirror'] = not p['mirror']
+        self.send_response(204)
+        self.end_headers()
+
     def do_GET(self):
         if self.path.startswith('/dev/list'):
             self.__dev_list()
@@ -211,10 +254,23 @@ class v720_http(log, SimpleHTTPRequestHandler):
                     _path[0] == 'dev' and \
                     _path[1] in v720_http._dev_lst:
                 _cmd = _path[2]
+                _dev = v720_http._dev_lst[_path[1]]
 
                 if _cmd in self._dev_hnds:
-                    _dev = v720_http._dev_lst[_path[1]]
                     self._dev_hnds[_cmd](_dev)
+                elif _cmd == 'rotate':
+                    p = v720_http._dev_params[_path[1]]
+                    p['rotate'] = (p['rotate'] + 1) % 4
+                    self.send_response(204)
+                    self.end_headers()
+                elif _cmd == 'mirror':
+                    p = v720_http._dev_params[_path[1]]
+                    p['mirror'] = not p['mirror']
+                    self.send_response(204)
+                    self.end_headers()
+                else:
+                    self.info(f'GET unknown path: {self.path}')
+                    self.send_error(404, 'Not found')
             else:
                 self.info(f'GET unknown path: {self.path}')
                 self.send_error(404, 'Not found')
