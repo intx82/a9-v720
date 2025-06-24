@@ -8,7 +8,7 @@ Also on my side, NetworkManager works as a DHCP server, and below used IP 10.42.
 Then to be able intercept all cameras requests to the server, install Dnsmasq and override `v720.naxclow.com` and `v720.p2p.naxclow.com` hosts to the local IP (10.42.0.1).
 This preparation could be done on a router (ie provide fake DNS records and offer DHCP address).
 
-Last but not least, install `mosquitto` broker with `mosquitto-utils` to provide an MQTT control pipe. 
+Last but not least, install `mosquitto` broker with `mosquitto-utils` to provide an MQTT control pipe.
 
 After such preparations, the camera must be connected to the fake AP. This could be done with `a9-naxclow.py --set-wifi SSID PWD` command. And then you can start `fake_srv.py`.
 
@@ -41,10 +41,10 @@ curl -v -X POST "http://v720.naxclow.com/app/api/ApiSysDevicesBatch/registerDevi
 < Vary: Access-Control-Request-Headers
 < 
 * Connection #0 to host v720.naxclow.com left intact
-{"code":200,"message":"操作成功","data":"0800c00128F8"} 
+{"code":200,"message":"操作成功","data":"0800c00128F8"}
 ```
 
-After bootstrap message camera might ask a confirmation from the server. 
+After bootstrap message camera might ask a confirmation from the server.
 
 ```Log
  curl -v -X POST 'http://v720.naxclow.com/app/api/ApiSysDevicesBatch/confirm?devicesCode=0800c0020ADC&random=NOPQRS&token=025d085049'
@@ -127,7 +127,7 @@ And response:
 KeyboardInterrupt
 ```
 
-Response: 
+Response:
 
 ```python
 >>> from prot_json_udp import prot_json_udp
@@ -193,7 +193,7 @@ MQTT Commands, commands always send to the same topic: `Naxclow/P2P/Users/Device
 
 To test command, use `mosquitto_pub` and `mosquitto_sub`.
 
-For example: 
+For example:
 ```
 mosquitto_pub -t 'Naxclow/P2P/Users/Device/sub/0800c00128F8' -h 10.42.0.1 -m '{ "code": 204, "s": "mifi", "p": "mifimifi"}'
 ```
@@ -224,7 +224,7 @@ mosquitto_sub -t '#' -h 'v720.p2p.naxclow.com' -v | ts [%.s]
 
 ### 6. Camera establish a connection via NAT
 
-To establish a connection via NAT, the server sends a message with a `code 11` (CODE_S2D_NAT_REQ). 
+To establish a connection via NAT, the server sends a message with a `code 11` (CODE_S2D_NAT_REQ).
 
 ```
 {'code': 11, 'cliTarget': '00112233445566778899aabbccddeeff', 'cliToken': '55ABfb77', 'cliIp': '10.42.0.1', 'cliPort': 53221, 'cliNatIp': '10.42.0.1', 'cliNatPort': 41234}
@@ -244,7 +244,7 @@ To establish a UDP connection, the camera sends a `code 20 (CODE_C2S_UDP_REQ)` m
 ```
 Point which is returned in `code 21 (CODE_S2C_UDP_RSP)` does really not matter.
 
-> little remark, in CODE_ names could be found a prefixes like _C2S or _C2D - which means Client2Server or Client2Device and vice-versa 
+> little remark, in CODE_ names could be found a prefixes like _C2S or _C2D - which means Client2Server or Client2Device and vice-versa
 
 On the TCP channel sends a result of this operation, answer will contain a message with `code 12 (CODE_D2S_NAT_RSP)`
 
@@ -267,13 +267,13 @@ After receiving a message with `code 12 (CODE_D2S_NAT_RSP)` camera will send a m
 
 To switch a camera into command mode, send:
 
-1. command with `code 50 (CODE_C2D_PROBE_REQ)` 
+1. command with `code 50 (CODE_C2D_PROBE_REQ)`
 
     ```json
     {"code": 50}
     ```
 2. Got an answer with `code 51 (CODE_C2D_PROBE_RSP)`
-    
+
     ```JSON
     {
     "code": 51,
@@ -288,12 +288,12 @@ To switch a camera into command mode, send:
    ```
 
 4. Send restransmission command:
-   
+
    ```JSON
    {"code": 301, "target": "00112233445566778899aabbccddeeff", "content": {"code": 298}}
   ```
 
-  Where `code 301 (CODE_CMD_FORWARD)` it's a forward code and used the same as in AP mode. 
+  Where `code 301 (CODE_CMD_FORWARD)` it's a forward code and used the same as in AP mode.
   `code 298 (CODE_RETRANSMISSION)` - it's a retransmission command itself
 
   There is no answer to this command too
@@ -304,7 +304,7 @@ To switch a camera into command mode, send:
   {"code": 301, "target": "00112233445566778899aabbccddeeff", "content": {"unixTimer": 1677886134, "code": 4}}
   ```
 
-  `code 4 (CODE_FORWARD_DEV_BASE_INFO)` - baseinfo command. 
+  `code 4 (CODE_FORWARD_DEV_BASE_INFO)` - baseinfo command.
 
   On answer to this comamnd, camera will send current status:
 
@@ -329,7 +329,7 @@ To switch a camera into command mode, send:
   ```
 
 ### 8. Starting a streaming
-  
+
 Starting the streaming is the same as in AP mode, need to send `code 3` command in forward mode.
 
 ```
@@ -353,11 +353,11 @@ There are three type of frames - 1 (`P2P_UDP_CMD_JPEG`) / 4 (`P2P_UDP_CMD_G711`)
     * MSG_FLAG = 251 - Continuation of JPEG frame
     * MSG_FLAG = 252 - End of JPEG frame
 
-The last 4 bytes of the last JPEG package contain the size of the full frame. 
+The last 4 bytes of the last JPEG package contain the size of the full frame.
 
 Audio data is not fragmented and looks more like G711-ALAW audio stream.
 
-Every next sent frame should be repeated with `code 605 (P2P_UDP_CMD_RETRANSMISSION_CONFIRM)` which contains already received package_id's in a list. To achieve 10 fps, this command should be retransmitted every 100ms. 
+Every next sent frame should be repeated with `code 605 (P2P_UDP_CMD_RETRANSMISSION_CONFIRM)` which contains already received package_id's in a list. To achieve 10 fps, this command should be retransmitted every 100ms.
 
 ```log
 2023-03-06 20:04:05,450  [  DEBUG] [V720-STA] Request (UDP): CMD: 1, len: 1004 (1004), MSG_Flag: 250, pkg_id: 2802, deal_fl: 0, fwd-id: b'\x00\x00\x00\x00\x00\x00\x00\x00' Payload: ffd8ffe000104a46494600010100028001e00000ffc000110801e00280030121...
