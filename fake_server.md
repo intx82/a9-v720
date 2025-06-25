@@ -1,23 +1,23 @@
 # V720 Fake server
 
-## Preparing setup
+## Preparing the setup
 
-You should make an AP and prevent camera access to the internet. I have made it by NetworkManager-GUI, so no details.
-Also on my side, NetworkManager working as DHCP server, and below used IP 10.42.0.1 is my laptop and 10.42.0.22 is camera host
+You should make an AP and prevent camera access to the internet. I have made it by NetworkManager GUI, so no details.
+Also on my side, NetworkManager works as a DHCP server, and below used IP 10.42.0.1 is my laptop and 10.42.0.22 is the camera host.
 
-Then to be able intercept all cameras requests to the server, needed to install Dnsmasq and override `v720.naxclow.com` and `v720.p2p.naxclow.com` hosts to the local IP (10.42.0.1)
-This preparation could be done on a router (ie provide fake DNS records and offer dhcp address).
+Then to be able intercept all cameras requests to the server, install Dnsmasq and override `v720.naxclow.com` and `v720.p2p.naxclow.com` hosts to the local IP (10.42.0.1).
+This preparation could be done on a router (ie provide fake DNS records and offer DHCP address).
 
-Last but not least, need to install `mosquitto` broker with `mosquitto-utils` to provide an mqtt control pipe. 
+Last but not least, install `mosquitto` broker with `mosquitto-utils` to provide an MQTT control pipe.
 
-After such preparations, camera must be connected to fake-AP, this could be done with `a9-naxclow.py --set-wifi SSID PWD` command. And then you can start `fake_srv.py`
+After such preparations, the camera must be connected to the fake AP. This could be done with `a9-naxclow.py --set-wifi SSID PWD` command. And then you can start `fake_srv.py`.
 
 
 ## Camera server registration steps
 
 ### 1. Bootstrap HTTP operations
 
-First device goes to register on `bootstrap` server which gives to camera new name and after point on dedicated server with which it will works
+First device goes to register on `bootstrap` server which gives the camera a new name and then points it to a dedicated server to work with.
 
 
 ```log
@@ -41,10 +41,10 @@ curl -v -X POST "http://v720.naxclow.com/app/api/ApiSysDevicesBatch/registerDevi
 < Vary: Access-Control-Request-Headers
 < 
 * Connection #0 to host v720.naxclow.com left intact
-{"code":200,"message":"操作成功","data":"0800c00128F8"} 
+{"code":200,"message":"操作成功","data":"0800c00128F8"}
 ```
 
- After bootstrap message camera might ask an confirmation from server. 
+After bootstrap message camera might ask a confirmation from the server.
 
 ```Log
  curl -v -X POST 'http://v720.naxclow.com/app/api/ApiSysDevicesBatch/confirm?devicesCode=0800c0020ADC&random=NOPQRS&token=025d085049'
@@ -70,12 +70,12 @@ curl -v -X POST "http://v720.naxclow.com/app/api/ApiSysDevicesBatch/registerDevi
 {"code":200,"message":"操作成功","data":null}
 ```
 
-After that device AP will have name `0800c00128F8`. `操作成功` - translates as 'OK'. This will happens only once, after this step camera will never do this again.
+After that device AP will have name `0800c00128F8`. `操作成功` - translates as 'OK'. This will happen only once, after this step camera will never do this again.
 
 
-### 2. Device try to get dedicated server info. 
+### 2. Device tries to get dedicated server info
 
-So let's route them to our IP (10.42.0.1)
+So let's route them to our IP (10.42.0.1):
 
 ```log
 curl -v -X POST "http://v720.naxclow.com/app/api/ApiServer/getA9ConfCheck?devicesCode=0800c00128F8&random=FGHIJK&token=68778db973"
@@ -100,10 +100,10 @@ curl -v -X POST "http://v720.naxclow.com/app/api/ApiServer/getA9ConfCheck?device
 * Connection #0 to host v720.naxclow.com left intact
 {"code":200,"message":"操作成功","data":{"tcpPort":29940,"uid":"0800c00128F8","isBind":"8","domain":"v720.naxclow.com","updateUrl":null,"host":"43.240.74.95","currTime":"1676097689","pwd":"91edf41f","version":null}}
 ```
+
 ### 3. Initial registration
 
-Device send registration on main server (provided via bootstrap, ie 43.240.74.95:29940)
-
+Device sends registration to main server (provided via bootstrap, ie 43.240.74.95:29940):
 
 ```hex
 0000                     57 00 00 00 00 00 00 00 00 00         W.........
@@ -116,7 +116,7 @@ Device send registration on main server (provided via bootstrap, ie 43.240.74.95
 0070   7d                                                }
 ```
 
-And respone:
+And response:
 
 ```bash
 ~# python3 tcp_hex.py 43.240.72.158 29941 57000000000000000000000000000000000000007b22636f6465223a203130302c2022756964223a2022303830306330303132384638222c2022746f6b656e223a2022393165646634316622202c22646f6d61696e223a2022763732302e6e6178636c6f772e636f6d227d
@@ -127,7 +127,8 @@ And respone:
 KeyboardInterrupt
 ```
 
-Response: 
+Response:
+
 ```python
 >>> from prot_json_udp import prot_json_udp
 >>> from prot_udp import prot_udp
@@ -139,11 +140,11 @@ CMD: 0, len: 25 (25), MSG_Flag: 255, pkg_id: 0, deal_fl: 0, fwd-id: b'\xff\xff\x
 JSON: {'code': 101, 'status': 200}
 ```
 
-### 4. Camera try to connect to the p2p server
+### 4. Camera tries to connect to the p2p server
 
-P2P server: v720.p2p.naxclow.com. Override it also to 10.42.0.1
+P2P server: v720.p2p.naxclow.com. Override it also to 10.42.0.1.
 
-P2P server is a mqtt-broker, as usually located on 1883, without any encryption
+P2P server is an MQTT broker, usually listening on port 1883, without any encryption.
 
 ```Log
 MQ Telemetry Transport Protocol, Connect Command
@@ -165,9 +166,10 @@ MQ Telemetry Transport Protocol, Connect Command
     Password Length: 12
     Password: "656f41d93b"
 ```
+
 ### 5. MQTT operations
 
-Camera subscribes to topic `Naxclow/P2P/Users/Device/sub/0800c00128F8` and publish a few messages to `Naxclow/P2P/Users/Device/Status` and `Naxclow/P2P/Users/Device/Info`
+Camera subscribes to topic `Naxclow/P2P/Users/Device/sub/0800c00128F8` and publishes a few messages to `Naxclow/P2P/Users/Device/Status` and `Naxclow/P2P/Users/Device/Info`.
 
 Status message contains:
 
@@ -187,11 +189,11 @@ On poweroff camera will send:
 ```
 Commands:
 
-MQTT Commands, commands sends always to the same topic: `Naxclow/P2P/Users/Device/sub/0800c00128F8`
+MQTT Commands, commands always send to the same topic: `Naxclow/P2P/Users/Device/sub/0800c00128F8`.
 
-To test command, use `mosquitto_pub` and `mosquitto_sub`
+To test command, use `mosquitto_pub` and `mosquitto_sub`.
 
-For example: 
+For example:
 ```
 mosquitto_pub -t 'Naxclow/P2P/Users/Device/sub/0800c00128F8' -h 10.42.0.1 -m '{ "code": 204, "s": "mifi", "p": "mifimifi"}'
 ```
@@ -222,7 +224,7 @@ mosquitto_sub -t '#' -h 'v720.p2p.naxclow.com' -v | ts [%.s]
 
 ### 6. Camera establish a connection via NAT
 
-To establish a connection via NAT, the server sends a message with a `code 11` (CODE_S2D_NAT_REQ). 
+To establish a connection via NAT, the server sends a message with a `code 11` (CODE_S2D_NAT_REQ).
 
 ```
 {'code': 11, 'cliTarget': '00112233445566778899aabbccddeeff', 'cliToken': '55ABfb77', 'cliIp': '10.42.0.1', 'cliPort': 53221, 'cliNatIp': '10.42.0.1', 'cliNatPort': 41234}
@@ -232,7 +234,7 @@ If put in code 11 message wrong IP, nothing bad happens, but opens a door to mak
 
 After camera will try to establish connection via UDP with at least one of proposed ports (53221 / 41234), otherwise will try to use the same port/IP as TCP but on UDP. This UDP channel later will be used as data-channel to transmit a MJPG/G711 data.
 
-To establish a UDP connection, the camera sends an `code 20 (CODE_C2S_UDP_REQ)` message and waits back for a message with code 21
+To establish a UDP connection, the camera sends a `code 20 (CODE_C2S_UDP_REQ)` message and waits back for a message with code 21.
 
 ```
 [UDP-SRV] JSON recv: [32]: {
@@ -240,9 +242,9 @@ To establish a UDP connection, the camera sends an `code 20 (CODE_C2S_UDP_REQ)` 
 }
 [UDP] Send UDP response: {'code': 21, 'ip': '10.42.0.1', 'port': 53221}
 ```
-Point which is returned in `code 21 (CODE_S2C_UDP_RSP)` really has no matter
+Point which is returned in `code 21 (CODE_S2C_UDP_RSP)` does really not matter.
 
-> little remark, in CODE_ names could be found a prefixes like _C2S or _C2D - which means Client2Server or Client2Device and vice-versa 
+> little remark, in CODE_ names could be found a prefixes like _C2S or _C2D - which means Client2Server or Client2Device and vice-versa
 
 On the TCP channel sends a result of this operation, answer will contain a message with `code 12 (CODE_D2S_NAT_RSP)`
 
@@ -261,17 +263,17 @@ On the TCP channel sends a result of this operation, answer will contain a messa
 
 ### 7. Switching camera to command mode
 
-After receiving a message with `code 12 (CODE_D2S_NAT_RSP)` camera will sends a message with `code 51 (CODE_C2D_PROBE_RSP)`. By default client might send an CODE_C2D_PROBE_REQ again, answer will be the same (ie `code 51 (CODE_C2D_PROBE_RSP)`)
+After receiving a message with `code 12 (CODE_D2S_NAT_RSP)` camera will send a message with `code 51 (CODE_C2D_PROBE_RSP)`. By default client might send a `CODE_C2D_PROBE_REQ` again, answer will be the same (ie `code 51 (CODE_C2D_PROBE_RSP)`).
 
-To switch a camera into command mode need to send:
+To switch a camera into command mode, send:
 
-1. command with `code 50 (CODE_C2D_PROBE_REQ)` 
+1. command with `code 50 (CODE_C2D_PROBE_REQ)`
 
     ```json
     {"code": 50}
     ```
 2. Got an answer with `code 51 (CODE_C2D_PROBE_RSP)`
-    
+
     ```JSON
     {
     "code": 51,
@@ -286,12 +288,12 @@ To switch a camera into command mode need to send:
    ```
 
 4. Send restransmission command:
-   
+
    ```JSON
    {"code": 301, "target": "00112233445566778899aabbccddeeff", "content": {"code": 298}}
   ```
 
-  Where `code 301 (CODE_CMD_FORWARD)` it's a forward code and used the same as in AP mode. 
+  Where `code 301 (CODE_CMD_FORWARD)` it's a forward code and used the same as in AP mode.
   `code 298 (CODE_RETRANSMISSION)` - it's a retransmission command itself
 
   There is no answer to this command too
@@ -302,9 +304,9 @@ To switch a camera into command mode need to send:
   {"code": 301, "target": "00112233445566778899aabbccddeeff", "content": {"unixTimer": 1677886134, "code": 4}}
   ```
 
-  `code 4 (CODE_FORWARD_DEV_BASE_INFO)` - baseinfo command. 
+  `code 4 (CODE_FORWARD_DEV_BASE_INFO)` - baseinfo command.
 
-  On answer to this comamnd, camera will sends current status:
+  On answer to this comamnd, camera will send current status:
 
   ```JSON
   {
@@ -327,7 +329,7 @@ To switch a camera into command mode need to send:
   ```
 
 ### 8. Starting a streaming
-  
+
 Starting the streaming is the same as in AP mode, need to send `code 3` command in forward mode.
 
 ```
@@ -345,17 +347,17 @@ Next step @ rcv: -
 
 ### 9. Frames fragmentation
 
-There are three type of frames - 1 (P2P_UDP_CMD_JPEG) / 4 (P2P_UDP_CMD_G711) / 7 (P2P_UDP_CMD_AVI). Type of frame is set in CMD field of the package. JPEG frame could be fragmented (because one JPG frame have size ~15kb, which is more than MTU). To fragment it, every package includes MSG_FLAG value, where:
+There are three type of frames - 1 (`P2P_UDP_CMD_JPEG`) / 4 (`P2P_UDP_CMD_G711`) / 7 (`P2P_UDP_CMD_AVI`). Type of frame is set in CMD field of the package. JPEG frame could be fragmented (because one JPEG frame have size ~15kb, which is more than MTU). To fragment it, every package includes `MSG_FLAG` value, where:
 
     * MSG_FLAG = 250 - Start of JPEG frame
     * MSG_FLAG = 251 - Continuation of JPEG frame
     * MSG_FLAG = 252 - End of JPEG frame
 
-The last 4 bytes of the last JPEG package contains the size of the full frame. 
+The last 4 bytes of the last JPEG package contain the size of the full frame.
 
-Audio data is not fragmented and looks more like G711-ALAW audio stream 
+Audio data is not fragmented and looks more like G711-ALAW audio stream.
 
-Every next sent frame should be repeated with `code 605 (P2P_UDP_CMD_RETRANSMISSION_CONFIRM)` which contains already received package_id's in a list. To achieve 10 fps, this command should be retransmitted every 100ms. 
+Every next sent frame should be repeated with `code 605 (P2P_UDP_CMD_RETRANSMISSION_CONFIRM)` which contains already received package_id's in a list. To achieve 10 fps, this command should be retransmitted every 100ms.
 
 ```log
 2023-03-06 20:04:05,450  [  DEBUG] [V720-STA] Request (UDP): CMD: 1, len: 1004 (1004), MSG_Flag: 250, pkg_id: 2802, deal_fl: 0, fwd-id: b'\x00\x00\x00\x00\x00\x00\x00\x00' Payload: ffd8ffe000104a46494600010100028001e00000ffc000110801e00280030121...
