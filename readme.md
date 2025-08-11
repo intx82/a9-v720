@@ -3,6 +3,7 @@
 ![Camera Image](https://raw.githubusercontent.com/intx82/a9-v720/master/img/0.jpg)
 
 **Note:** This application has been tested only with camera version `202212011602` that uses the Chinese V720 app in AP mode. Please refer to the PCB images of the camera provided below for verification.
+
 **Note:** Looks like fake server is not working with FW >= `202411201737`.
 
 Discussion on the Home Assistant forum: [Popular A9 Mini Wi-Fi Camera - The HA Challenge](https://community.home-assistant.io/t/popular-a9-mini-wi-fi-camera-the-ha-challenge/230108)
