@@ -236,6 +236,8 @@ class v720_http(log, SimpleHTTPRequestHandler):
             ret = {"code": 200, "message": "OK", "data": None}
         elif self.path.startswith('/app/api/ApiSysDevices/a9bindingAppDevice'):
             ret = {"code": 200, "message": "OK", "data": None}
+        elif self.path.startswith('/app/api/ApiSysDevices/getDevInfo'):
+            ret = {"code": 200, "message": "OK", "data": { "userInfo_state": 1 }}
         elif self.path.startswith('/app/api/ApiServer/getA9ConfCheck'):
             uid = f'{random.randint(0,99999):05d}'
             p = self.path[len('/app/api/ApiServer/getA9ConfCheck?'):]

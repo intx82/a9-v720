@@ -4,7 +4,6 @@
 
 **Note:** This application has been tested only with camera version `202212011602` that uses the Chinese V720 app in AP mode. Please refer to the PCB images of the camera provided below for verification.
 
-**Note:** Looks like fake server is not working with FW >= `202411201737`.
 
 Discussion on the Home Assistant forum: [Popular A9 Mini Wi-Fi Camera - The HA Challenge](https://community.home-assistant.io/t/popular-a9-mini-wi-fi-camera-the-ha-challenge/230108)
 
@@ -128,7 +127,7 @@ python3 src/a9_naxclow.py -s
 
 > in my case 192.168.2.3 is a RPi server IP
 
-- **DNS Redirection:** For the fake server to function correctly, you must set up DNS redirection on your home router. Redirect all domains ending with `*.naxclow.com` (e.g., `v720.naxclow.com`, `v720.p2p.naxclow.com`, `p2p.v720.naxclow.com`) to your server's IP address. See [DNS Redirection](#dns-redirection) below for more specific instructions.
+- **DNS Redirection:** For the fake server to function correctly, you must set up DNS redirection on your home router. Redirect all domains ending with `*.naxclow.com` (e.g., `v720.naxclow.com`, `v720.p2p.naxclow.com`, `p2p.v720.naxclow.com`, `dl2.naxclow.com`, `*.naxclow.com.cn`) to your server's IP address. See [DNS Redirection](#dns-redirection) below for more specific instructions.
 - **MQTT Broker:** Ensure that an MQTT broker is installed on your server, or redirect `p2p.v720.naxclow.com` to a public MQTT broker.
 - **Further Details:** For more information on how this works, please refer to [fake_server.md](fake_server.md).
 
@@ -230,3 +229,19 @@ _wifi_easyjoin: ssid:[ap0] bssid:00:00:00:00:00:00 key:1213aCBVDiop@  <-- Here, 
 We hope this guide helps you in using the A9 V720 Naxclow Camera with our script. If you have any questions or need further assistance, please feel free to reach out.
 
 ---
+
+## Updates
+
+### Issue #51
+
+Some people faced the issues with firmware >= 20241120173
+
+Update by @0x3dlux :
+
+> : these are DNS requests I saw during my experiments so you may want to extend that list in the README:
+> dl2.naxclow.com
+> dl2.naxclow.com.cn
+> home.naxclow.com
+> logo.naxclow.com.cn
+> v720.naxclow.com
+> v720.p2p.naxclow.com
