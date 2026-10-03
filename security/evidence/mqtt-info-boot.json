@@ -1,0 +1,24 @@
+{
+  "source": "cam170-boot-mqtt-http.pcap (MQTT PUBLISH on tcp/1883 at boot)",
+  "topic": "Naxclow/P2P/Users/Device/Info",
+  "note": "Extracted for criterion C1; rotating session fields (random/token) redacted to [REDACTED] - values are per-boot session tokens, see FW-004/FW-006.",
+  "payload": {
+    "apStatus": 0,
+    "devPower": 100,
+    "sdCapacity": 0,
+    "IrLed": 0,
+    "instLed": 1,
+    "sdMoveMode": 1,
+    "sdCardReco": 1,
+    "moveGrade": 0,
+    "pirAlert": 1,
+    "pirGrade": 0,
+    "cameraState": 0,
+    "camType": "gc0312",
+    "random": "[REDACTED]",
+    "token": "[REDACTED]",
+    "devicesCode": "080c0e054577",
+    "wifiName": "Miau",
+    "version": "202503081631"
+  }
+}

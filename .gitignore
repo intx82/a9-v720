@@ -5,3 +5,7 @@
 *.mjpg
 *.pcap
 nohup.out
+*.0x3d
+Notes.txt
+/catcam
+.playwright-cli/
