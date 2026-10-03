@@ -514,12 +514,13 @@ func (d *Device) startRetransmit() {
 		return
 	}
 	d.retrStop = make(chan struct{})
+	stop := d.retrStop
 	go func() {
 		ticker := time.NewTicker(100 * time.Millisecond)
 		defer ticker.Stop()
 		for {
 			select {
-			case <-d.retrStop:
+			case <-stop:
 				return
 			case <-d.closeCh:
 				return

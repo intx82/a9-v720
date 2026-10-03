@@ -6,7 +6,7 @@ streams from the cameras' P2P data channel.
 
 ## Build & run
 
-    go vet -buildvcs=false ./... && go test -buildvcs=false ./... && go build -buildvcs=false -o catcam .
+    go vet -buildvcs=false ./... && go test -race -buildvcs=false ./... && go build -buildvcs=false -o catcam .
     ./start.sh                            # or: ./catcam
     # flags: -tcp :6123 -udp :6123 -http :8247 -server-ip <ip>
     # -server-ip (or SERVER_IP env) overrides the IP advertised to cameras;
@@ -57,3 +57,10 @@ without sudo won't find it.
   retry path is missing in an older binary.
 - Baseline/A-B measurements: re-measure with
   `ffmpeg -i <mjpeg-url> -t 30 -f null -` (drop the `-r 10` cap to see the raw rate).
+
+## Logs
+
+`start.sh` logs to `logs/server-go.log` via screen (append-only, fd kept open). Rotation is
+handled by the weekly `copytruncate` stanza in `/etc/logrotate.d/0x3d` (keep it:
+plain rotation would silently keep writing into the rotated file). One-off
+shrink: `truncate -s 0 logs/server-go.log`.
