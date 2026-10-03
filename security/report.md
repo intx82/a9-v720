@@ -58,7 +58,7 @@ The device has **no integrity protection of its control plane**: rendezvous, MQT
 
 1. **Baseline recon** — ARP/neighbour, full 65 535-port scan (none open), relay/nginx log mining, MQTT observation.
 2. **Firmware acquisition** — enumeration of the vendor OTA server (`120.77.233.10/BK7252_P2P_IPC_FW`, the `dl2.naxclow.com` content host) and download of 3 A9-family builds; SHA-256 logged. One **3-minute controlled un-sinkhole probe** captured the device's live confcheck answer from the real cloud (restored automatically; sinkhole integrity verified afterwards — see gotcha note in Appendix C).
-3. **Extraction** — unblob (absent on host) → binwalk (`-B` + `-e --matryoshka`): RBL payloads are AES-encrypted, zero signatures; unresolved region 100 %.
+3. **Extraction** — unblob 26.6.4 + binwalk (`-B` + `-e --matryoshka`): RBL payloads are AES-encrypted (uniform 7.9997 bits/byte), zero chunks/signatures; unresolved region 100 % (raw tool logs in `firmware/raw-logs/`, empty extraction inventory in `firmware/filesystem-tree.txt`).
 4. **Static analysis** — RBL headers; upstream artifacts from git history (`docs/uart.log` serial boot log, app JADX sources); live boot pcap dissection.
 5. **Dynamic protocol testing** — PoC-01..04 (MQTT unauth control, relay/TCP command injection, rogue confcheck, UID sweep).
 6. **Feasibility study** — upgrade-path research (OpenIPC/OpenBeken/vendor SDK).

@@ -1,0 +1,6 @@
+# Entropy analysis of OTA .rbl images (unblob 26.6.4 Shannon 0-100 scale; 100 == 8.0 bits/byte)
+Shannon entropy calculated     block_size=0x2080 highest=99.8 lowest=99.66 mean=99.72 path=/tmp/rbl-extract/7252_TG_IPC_2202281530.rbl size=0xa2800
+Chi square probability calculated block_size=0x2080 highest=99.93 lowest=1.13 mean=50.3 path=/tmp/rbl-extract/7252_TG_IPC_2202281530.rbl size=0xa2800
+7252_A9_IPC_2102011649.rbl: python shannon = 7.9997 bits/byte over 618688 bytes
+7252_A9_IPC_2103181543.rbl: python shannon = 7.9997 bits/byte over 610400 bytes
+7252_TG_IPC_2202281530.rbl: python shannon = 7.9997 bits/byte over 665600 bytes

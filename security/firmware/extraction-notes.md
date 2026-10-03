@@ -18,7 +18,7 @@ All other folders on the OTA server (see `evidence/ota-index-BK7252_P2P_IPC_FW.h
 04: ver 02 01                4C: 4-byte CRC/hash, then high-entropy AES payload (8.000 bits/byte)
 08: build timestamp (unix LE) to 80+ : image-name ASCII + padding
 ```
-`unblob` not present on host; `binwalk -B` and `binwalk -e --matryoshka` find **zero signatures** — the entire app payload is AES-encrypted. **Unresolved region: 100 % (encrypted).** Extraction therefore yields no bootloader/kernel/squashfs — this is a BK7252 **RTOS** (RT-Thread 3.1.0, no Linux rootfs at all; confirmed by `docs/uart.log` boot banner in git history).
+`unblob` 26.6.4 and `binwalk` find **zero extractable chunks / zero signatures** on all three images — the entire app payload is AES-encrypted (uniform Shannon entropy 7.9997 bits/byte, unblob block mean 99.72/100). **Unresolved region: 100 % (encrypted).** Extraction therefore yields no bootloader/kernel/squashfs — this is a BK7252 **RTOS** (RT-Thread 3.1.0, no Linux rootfs at all; confirmed by `docs/uart.log` boot banner in git history). Raw tool outputs: `raw-logs/` (unblob reports, entropy summaries, binwalk signature + entropy scans); extraction-product inventory: `filesystem-tree.txt` (empty by result).
 
 ## What the device firmware actually is (verified from uart.log + live boot capture)
 

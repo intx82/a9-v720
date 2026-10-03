@@ -1,0 +1,19 @@
+# Filesystem tree after unblob + binwalk(--matryoshka) extraction attempts — 2026-10-03
+# Result: EMPTY. No bootloader/u-boot, no kernel, no squashfs obtainable.
+# All three OTA .rbl payloads are uniformly AES-encrypted (7.9997 bits/byte);
+# unblob all_chunks=[] , binwalk: zero signatures, zero carve products.
+
+unblob extract dirs:
+  out_7252_A9_IPC_2102011649.rbl/ (empty: 0 files)
+  out_7252_A9_IPC_2103181543.rbl/ (empty: 0 files)
+  out_7252_TG_IPC_2202281530.rbl/ (empty: 0 files)
+
+binwalk matryoshka carve dirs:
+  binwalk/carve_7252_A9_IPC_2102011649.rbl/ (empty: 0 files)
+  binwalk/carve_7252_A9_IPC_2103181543.rbl/ (empty: 0 files)
+  binwalk/carve_7252_TG_IPC_2202281530.rbl/ (empty: 0 files)
+  binwalk/carve_out_7252_A9_IPC_2102011649.rbl/ (empty: 0 files)
+  binwalk/carve_out_7252_A9_IPC_2103181543.rbl/ (empty: 0 files)
+  binwalk/carve_out_7252_TG_IPC_2202281530.rbl/ (empty: 0 files)
+
+Only artifact with structure = 0x40-byte RBL header (see extraction-notes.md).
