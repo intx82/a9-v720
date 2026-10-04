@@ -12,20 +12,6 @@ import (
 	"time"
 )
 
-const wavHDR = "RIFF\x8a\xdc\x01\x00WAVEfmt \x12\x00\x00\x00\x06\x00\x01\x00@\x1f\x00\x00@\x1f\x00\x00\x01\x00\x08\x00\x00\x00fact\x04\x00\x00\x006\xdc\x01\x00LIST\x1a\x00\x00\x00INFOISFT\x0e\x00\x00\x00Lavf58.45.100\x00data\xff\xff\xff\xff"
-
-var audioSilence = []byte(strings.Repeat("\xd5", 800))
-
-// audioLead is written to every audio consumer immediately after the WAV
-// header so downstream ffmpeg gets a packet before the camera's 1-3 s audio
-// start-up; without it go2rtc's RTSP ANNOUNCE is late and mix DESCRIBEs
-// race to a video-only SDP.
-var audioLead = []byte(strings.Repeat("\xd5", 1600))
-
-// audioIdleGrace is how long the audio stream must stay quiet before the
-// keepalive starts padding it with silence chunks.
-var audioIdleGrace = time.Second
-
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		if strings.HasPrefix(r.URL.Path, "/dev/") {
@@ -55,8 +41,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		switch parts[2] {
 		case "live", "video":
 			s.streamVideo(w, r, dev)
-		case "audio":
-			s.streamAudio(w, r, dev)
 		case "snapshot":
 			s.snapshot(w, dev)
 		default:
@@ -69,9 +53,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // streamStats accumulates payload units/bytes for one stream consumer
-// between 5-second stat reports.
+// between 5-second stat reports. units counts every written part (fresh
+// frames plus idle replays, matching bandwidth), fresh counts only newly
+// delivered camera frames - the rate the viewer actually sees update.
 type streamStats struct {
 	units int64
+	fresh int64
 	bytes int64
 	from  time.Time
 }
@@ -79,6 +66,13 @@ type streamStats struct {
 func (st *streamStats) add(n int) {
 	st.units++
 	st.bytes += int64(n)
+}
+
+func (st *streamStats) fps(el time.Duration) float64 {
+	if el <= 0 {
+		return 0
+	}
+	return float64(st.fresh) / el.Seconds()
 }
 
 func (s *Server) streamVideo(w http.ResponseWriter, r *http.Request, d *Device) {
@@ -95,10 +89,10 @@ func (s *Server) streamVideo(w http.ResponseWriter, r *http.Request, d *Device) 
 	st := streamStats{from: time.Now()}
 	tick := time.NewTicker(5 * time.Second)
 	defer tick.Stop()
-	v, a := d.viewers()
-	log.Printf("%s: video viewer connected (%d video, %d audio)", d.uid, v, a)
+	v := d.viewers()
+	log.Printf("%s: video viewer connected (%d viewers)", d.uid, v)
 	defer func() {
-		log.Printf("%s: video viewer left after %v: %d frames, %d B", d.uid, time.Since(start).Round(time.Second), st.units, st.bytes)
+		log.Printf("%s: video viewer left after %v: %d frames, %d B", d.uid, time.Since(start).Round(time.Second), st.fresh, st.bytes)
 	}()
 
 	const partHeader = "--jpgboundary\r\nContent-type: image/jpeg\r\n\r\n"
@@ -123,6 +117,7 @@ func (s *Server) streamVideo(w http.ResponseWriter, r *http.Request, d *Device) 
 			}
 			n, err := w.Write(frame)
 			st.add(n)
+			st.fresh++
 			if err != nil {
 				return
 			}
@@ -145,78 +140,8 @@ func (s *Server) streamVideo(w http.ResponseWriter, r *http.Request, d *Device) 
 			timer.Reset(100 * time.Millisecond)
 		case <-tick.C:
 			el := time.Since(st.from)
-			v, a := d.viewers()
-			log.Printf("%s: video viewer stats: %d frames, %.1f fps, %.0f KB/s (%d video, %d audio viewers)",
-				d.uid, st.units, float64(st.units)/el.Seconds(), float64(st.bytes)/el.Seconds()/1024, v, a)
-			st = streamStats{from: time.Now()}
-		}
-	}
-}
-
-func (s *Server) streamAudio(w http.ResponseWriter, r *http.Request, d *Device) {
-	rc := http.NewResponseController(w)
-	w.Header().Set("Content-Type", "audio/wav")
-	w.Header().Set("Connection", "close")
-	w.Header().Set("Pragma", "no-cache")
-	w.WriteHeader(200)
-	w.Write([]byte(wavHDR))
-	w.Write(audioLead)
-	rc.Flush()
-
-	sub := d.attachAudio()
-	defer d.detach(sub)
-	start := time.Now()
-	st := streamStats{from: time.Now()}
-	tick := time.NewTicker(5 * time.Second)
-	defer tick.Stop()
-	v, a := d.viewers()
-	log.Printf("%s: audio viewer connected (%d video, %d audio)", d.uid, v, a)
-	defer func() {
-		log.Printf("%s: audio viewer left after %v: %d chunks, %d B", d.uid, time.Since(start).Round(time.Second), st.units, st.bytes)
-	}()
-
-	// real chunks flow at ~10/s; only start padding with A-law silence
-	// once the camera has been quiet for audioIdleGrace, so a jittery but
-	// continuous stream is never interleaved with filler (clicks/stutter).
-	last := time.Now()
-	timer := time.NewTimer(audioIdleGrace)
-	defer timer.Stop()
-	for {
-		select {
-		case <-r.Context().Done():
-			return
-		case <-d.closeCh:
-			return
-		case frame, ok := <-sub.ch:
-			if !ok {
-				return
-			}
-			n, err := w.Write(frame)
-			st.add(n)
-			if err != nil {
-				return
-			}
-			rc.Flush()
-			last = time.Now()
-			timer.Reset(audioIdleGrace)
-		case <-timer.C:
-			if since := time.Since(last); since >= audioIdleGrace {
-				// pad at realtime cadence while the camera is quiet
-				n, err := w.Write(audioSilence)
-				st.add(n)
-				if err != nil {
-					return
-				}
-				rc.Flush()
-				timer.Reset(100 * time.Millisecond)
-			} else {
-				timer.Reset(audioIdleGrace - since)
-			}
-		case <-tick.C:
-			el := time.Since(st.from)
-			v, a := d.viewers()
-			log.Printf("%s: audio viewer stats: %d chunks, %.0f B/s (%d video, %d audio viewers)",
-				d.uid, st.units, float64(st.bytes)/el.Seconds(), v, a)
+			log.Printf("%s: video viewer stats: %d frames, %.1f fps, %.0f KB/s (%d viewers)",
+				d.uid, st.fresh, st.fps(el), float64(st.bytes)/el.Seconds()/1024, d.viewers())
 			st = streamStats{from: time.Now()}
 		}
 	}

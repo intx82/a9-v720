@@ -2,11 +2,7 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -14,7 +10,6 @@ import (
 func newAVDevice() *Device {
 	return &Device{
 		videoSubs: map[*subscription]bool{},
-		audioSubs: map[*subscription]bool{},
 		closeCh:   make(chan struct{}),
 	}
 }
@@ -35,118 +30,6 @@ func trailer(size int) []byte {
 	t := make([]byte, 5)
 	binary.LittleEndian.PutUint32(t[1:5], uint32(size))
 	return t
-}
-
-func TestAudioRawForwarding(t *testing.T) {
-	d := newAVDevice()
-	sub := &subscription{ch: make(chan []byte, 256)}
-	d.mu.Lock()
-	d.audioSubs[sub] = true
-	d.mu.Unlock()
-
-	payload := bytes.Repeat([]byte{0xAA}, 800)
-	d.handleData(dataMsg(cmdG711, flagFinish, 1000, payload))
-	select {
-	case got := <-sub.ch:
-		if !bytes.Equal(got, payload) {
-			t.Fatalf("got %d audio bytes, want 800 raw (no trailer strip)", len(got))
-		}
-	case <-time.After(time.Second):
-		t.Fatal("no audio delivered")
-	}
-
-	d.handleData(dataMsg(cmdG711, flagBody, 1001, []byte("xyz")))
-	select {
-	case got := <-sub.ch:
-		if string(got) != "xyz" {
-			t.Fatalf("got %q, want raw xyz", got)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("non-FINISH audio packet not forwarded")
-	}
-}
-
-func TestAudioNoSilenceWhileFlowing(t *testing.T) {
-	old := audioIdleGrace
-	audioIdleGrace = 300 * time.Millisecond
-	defer func() { audioIdleGrace = old }()
-
-	d := newAVDevice()
-	var s Server
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s.streamAudio(w, r, d)
-	}))
-	defer ts.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL+"/audio", nil)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-
-	readDone := make(chan []byte, 1)
-	go func() {
-		buf, _ := io.ReadAll(resp.Body)
-		readDone <- buf
-	}()
-
-	chunk := bytes.Repeat([]byte{0xAA}, 800)
-	deadline := time.Now().Add(6 * time.Second)
-	for time.Now().Before(deadline) {
-		d.publish(d.audioSubs, chunk)
-		time.Sleep(200 * time.Millisecond)
-	}
-	cancel()
-	buf := <-readDone
-	if i := bytes.IndexByte(buf[len(wavHDR)+len(audioLead):], 0xD5); i >= 0 {
-		t.Fatalf("silence injected at offset %d while real audio was flowing", i)
-	}
-}
-
-func TestAudioLeadInSilence(t *testing.T) {
-	d := newAVDevice()
-	var s Server
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s.streamAudio(w, r, d)
-	}))
-	defer ts.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL+"/audio", nil)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-
-	type res struct {
-		buf []byte
-		err error
-	}
-	done := make(chan res, 1)
-	go func() {
-		buf := make([]byte, len(wavHDR)+len(audioLead))
-		_, err := io.ReadFull(resp.Body, buf)
-		done <- res{buf, err}
-	}()
-	select {
-	case r := <-done:
-		if r.err != nil {
-			t.Fatalf("lead-in not delivered promptly: %v", r.err)
-		}
-		if !bytes.Equal(r.buf[:len(wavHDR)], []byte(wavHDR)) {
-			t.Fatal("missing WAV header")
-		}
-		if !bytes.Equal(r.buf[len(wavHDR):], audioLead) {
-			t.Fatal("lead-in after header is not A-law silence")
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("no lead-in bytes before first camera chunk")
-	}
 }
 
 func sendVideoFrame(d *Device, start uint32, frame []byte) {

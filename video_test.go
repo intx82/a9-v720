@@ -14,7 +14,6 @@ func TestIdleStreamServesPlaceholder(t *testing.T) {
 	d := &Device{
 		srv:       &Server{},
 		videoSubs: map[*subscription]bool{},
-		audioSubs: map[*subscription]bool{},
 		closeCh:   make(chan struct{}),
 	}
 	var s Server
@@ -54,5 +53,31 @@ func TestIdleStreamServesPlaceholder(t *testing.T) {
 	}
 	if !bytes.Contains(buf, placeholderFrame) {
 		t.Fatalf("no placeholder frame served while idle (%d bytes)", len(buf))
+	}
+}
+
+func TestStatsFPSCountsFreshFramesOnly(t *testing.T) {
+	st := streamStats{units: 33, fresh: 3, bytes: 33000}
+	got := st.fps(3 * time.Second)
+	if got != 1.0 {
+		t.Fatalf("fps=%v, want fresh-rate 1.0 (not writes-rate 11)", got)
+	}
+}
+
+func TestAudioEndpointRemoved(t *testing.T) {
+	srv := &Server{devsByIP: map[string]*Device{}, devsByUID: map[string]*Device{}}
+	d := &Device{srv: srv, uid: "AUD", videoSubs: map[*subscription]bool{}, closeCh: make(chan struct{})}
+	srv.register(d)
+	ts := httptest.NewServer(srv)
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/dev/AUD/audio")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("GET /audio status %d, want 404 after audio drop", resp.StatusCode)
 	}
 }

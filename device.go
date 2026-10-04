@@ -40,7 +40,6 @@ type Device struct {
 	mu         sync.Mutex
 	videoSubs  map[*subscription]bool
 	lastFrame  []byte // most recent complete frame, replayed to new subscribers
-	audioSubs  map[*subscription]bool
 
 	asmMu  sync.Mutex
 	win    *window // id-keyed reassembly (app algorithm)
@@ -50,8 +49,6 @@ type Device struct {
 	pkgIDs   []uint32
 	retrMu   sync.Mutex
 	retrStop chan struct{}
-
-	curAudio []byte
 
 	closed    bool
 	closeCh   chan struct{}
@@ -66,7 +63,6 @@ func newDevice(s *Server, tcp *net.TCPConn, ip string, port int) *Device {
 		camPort:   port,
 		dataPort:  randomPort(),
 		videoSubs: map[*subscription]bool{},
-		audioSubs: map[*subscription]bool{},
 		closeCh:   make(chan struct{}),
 	}
 }
@@ -274,17 +270,15 @@ func (d *Device) handleData(m *message) {
 	case cmdJPEG:
 		d.reassembleVideo(m)
 	case cmdG711:
-		// the reference app forwards every cmd-4 payload verbatim to the
-		// audio thread (NaxclowClientUdp.onLiveChannelData): audio and
-		// video share one pkgID sequence, so note the id as a benign
-		// reassembly hole and emit the raw bytes (no trailer strip).
+		// audio payloads are no longer delivered; the camera still spends
+		// shared pkgIDs on them, so note the id as a benign reassembly hole
+		// for the video window
 		d.asmMu.Lock()
 		var ready [][]byte
 		if d.win != nil {
 			ready = d.win.markAudio(m.pkgID)
 		}
 		d.asmMu.Unlock()
-		d.publish(d.audioSubs, m.payload)
 		d.deliver(ready)
 	}
 }
@@ -392,33 +386,18 @@ func (d *Device) attachVideo() *subscription {
 	return s
 }
 
-func (d *Device) attachAudio() *subscription {
-	s := &subscription{ch: make(chan []byte, 256)}
-	d.mu.Lock()
-	first := len(d.audioSubs) == 0
-	d.audioSubs[s] = true
-	d.mu.Unlock()
-	d.capLive()
-	if first {
-		// wait for the audio open round-trip before any video stream may close
-		<-time.After(1500 * time.Millisecond)
-	}
-	return s
-}
-
 func (d *Device) detach(s *subscription) {
 	d.mu.Lock()
 	delete(d.videoSubs, s)
-	delete(d.audioSubs, s)
 	d.mu.Unlock()
 	d.capStop()
 }
 
-// viewers reports the number of live video and audio stream consumers.
-func (d *Device) viewers() (int, int) {
+// viewers reports the number of live video stream consumers.
+func (d *Device) viewers() int {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return len(d.videoSubs), len(d.audioSubs)
+	return len(d.videoSubs)
 }
 
 func (d *Device) capLive() {
@@ -564,10 +543,6 @@ func (d *Device) teardown() {
 	for s := range d.videoSubs {
 		close(s.ch)
 		delete(d.videoSubs, s)
-	}
-	for s := range d.audioSubs {
-		close(s.ch)
-		delete(d.audioSubs, s)
 	}
 	d.mu.Unlock()
 }

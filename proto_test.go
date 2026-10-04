@@ -62,7 +62,6 @@ func newTestDevice() (*Device, *subscription) {
 	d := &Device{
 		srv:       &Server{},
 		videoSubs: map[*subscription]bool{},
-		audioSubs: map[*subscription]bool{},
 		closeCh:   make(chan struct{}),
 	}
 	s := &subscription{ch: make(chan []byte, 64)}
@@ -179,18 +178,6 @@ func TestForwardMessageEnvelope(t *testing.T) {
 	}
 	if j.Code != codeCmdForward || j.Content.Code != codeFwdBaseInfo {
 		t.Fatalf("payload wrong: %+v", j)
-	}
-}
-
-func TestWAVHDR(t *testing.T) {
-	want := []byte("RIFF\x8a\xdc\x01\x00WAVEfmt ")
-	if len(wavHDR) != 92 {
-		t.Fatalf("wavHDR length %d", len(wavHDR))
-	}
-	for i, b := range want {
-		if wavHDR[i] != b {
-			t.Fatalf("wavHDR mismatch at %d: %02x != %02x", i, wavHDR[i], b)
-		}
 	}
 }
 

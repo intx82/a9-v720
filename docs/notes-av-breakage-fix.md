@@ -113,3 +113,22 @@ profile-level-id=7A0016). Fix: `-pix_fmt yuv420p` added to catcam1v/2v
 producers and /usr/src/catcam-av.sh; all streams now High/yuvj420p.
 Note: ffmpeg null-sink decode checks never caught this — libav decodes
 4:2:2 fine; verify H.264 profiles with ffprobe, not just decode censuses.
+
+## 2026-10-03 evening: audio streams dropped (a + av)
+
+AV/a producers never beat plain video in practice (0.5-2 fps rendered vs 5+),
+so the audio path is retired end to end:
+
+- go2rtc (backup `.bak-audiodrop`): only `catcam1v`/`catcam2v` exec producers;
+  `catcam1a/2a` + `catcam1av/2av` and `/usr/src/catcam-av.sh` removed.
+  API list confirms exactly `catcam1v/2v` (+ foreign streams).
+- Relay: `/dev/<uid>/audio` returns 404 (falls to default NotFound); WAV
+  header/silence/lead-in and audio subscriber plumbing removed. The cmd-G711
+  branch still marks its pkgIDs as benign holes in the video window (the
+  camera spends shared ids on audio regardless of consumers).
+- Stats format: `(... viewers)` single count; frame/fps already fresh-only.
+
+Verified: 13 unit tests + vet clean; live capture cam199 = 300 decoded parts /
+12 s, fresh stats 1-3 fps (RF-limited, matches render); catcam1v probe High/yuv420p;
+cam170 was idle during deploy (cams stop dialing after >5 min without a server;
+wake them via MQTT code 299, see README operational notes).

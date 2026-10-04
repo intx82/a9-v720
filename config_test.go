@@ -223,15 +223,15 @@ func TestNatProbeAdvertisesRealUDPPort(t *testing.T) {
 
 func TestViewerCounts(t *testing.T) {
 	d, _ := newTestDevice()
-	if v, a := d.viewers(); v != 1 || a != 0 {
-		t.Fatalf("initial viewers = %d,%d, want 1,0", v, a)
+	if n := d.viewers(); n != 1 {
+		t.Fatalf("initial viewers = %d, want 1", n)
 	}
 	s := d.attachVideo()
-	if v, _ := d.viewers(); v != 2 {
-		t.Errorf("after attach viewers = %d, want 2", v)
+	if n := d.viewers(); n != 2 {
+		t.Errorf("after attach viewers = %d, want 2", n)
 	}
 	d.detach(s)
-	if v, _ := d.viewers(); v != 1 {
-		t.Errorf("after detach viewers = %d, want 1", v)
+	if n := d.viewers(); n != 1 {
+		t.Errorf("after detach viewers = %d, want 1", n)
 	}
 }
