@@ -1,6 +1,0 @@
-# getDevInfo response from REAL cloud 47.243.132.88 (2026-10-03 01:42 CET, captured during probe2, cleartext HTTP)
-{"code":200,"message":"操作成功","data":{"userInfo_userId":"481174c5658c37874529550232128447e","ota_url":null,"ota_version":null,"ntpTimer":1790988131,"userInfo_state":1,"timeZone":1,"cloudStorage":0}}
-
-
-# getA9ConfCheck response from REAL cloud:
-{"code":200,"message":"操作成功","data":{"tcpPort":29942,"uid":"080c0e054577","isBind":"1","domain":"v720.naxclow.com","updateUrl":null,"host":"107.149.136.10","currTime":"1790988131","pwd":"1cdc80e7","version":null}}

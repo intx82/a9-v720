@@ -1,9 +1,0 @@
-
-╭────────────────────────────── unblob (26.6.4) ───────────────────────────────╮
-│ Output path: None                                                            │
-│ Extracted files: 1                                                           │
-│ Extracted directories: 0                                                     │
-│ Extracted links: 0                                                           │
-│ Extraction directory size: 596.09 KB                                         │
-╰────────────────────────────────── Summary ───────────────────────────────────╯
-[?25h
