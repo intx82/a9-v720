@@ -2,11 +2,12 @@
 
 ![Camera Image](https://raw.githubusercontent.com/intx82/a9-v720/master/img/0.jpg)
 
-**Note:** This application has been tested only with camera version `202212011602` that uses the Chinese V720 app in AP mode. Please refer to the PCB images of the camera provided below for verification.
+**Note:** This application has been tested only with camera version `202212011602` that uses the Chinese V720 app in AP mode. Please refer to the PCB images of the camera provided below for verification. You can try this with other v720 compatible cameras like `x5 mini`.
 
 
 Discussion on the Home Assistant forum: [Popular A9 Mini Wi-Fi Camera - The HA Challenge](https://community.home-assistant.io/t/popular-a9-mini-wi-fi-camera-the-ha-challenge/230108)
 
+All the required modules (like local DNS server, MQTT broker, and the fake a9_naxclow server) can be hosted on a small [Raspberry Pi](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/) single-board computer (SBC). The SBC consumes less than 5 watts of power, so it is the best candidate to make this a permanent solution to run A9 V720 type cameras locally. For the complete setup refer to [rpi_complete_setup.md](rpi_complete_setup.md) document.
 
 ---
 
