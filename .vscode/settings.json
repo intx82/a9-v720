@@ -1,3 +1,13 @@
 {
-    "python.formatting.autopep8Args": ["--max-line-length", "160", "--experimental"]
+    "python.formatting.autopep8Args": [
+        "--max-line-length",
+        "160",
+        "--experimental"
+    ],
+    "cSpell.words": [
+        "Dnsmasq",
+        "naxclow",
+        "Naxclow",
+        "restartdns"
+    ]
 }
