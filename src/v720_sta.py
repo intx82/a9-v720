@@ -112,7 +112,7 @@ class v720_sta(log):
             f'{cmd_udp.CODE_FORWARD_CLOSE_A_CLOSE_V}': self.__on_close_video,
         }
         
-        self._vframe = Queue()
+        self._vframe = bytearray()
         self._aframe = bytearray()
         self._frame_lst_mtx = threading.Lock()
         self._frame_lst = []
@@ -445,37 +445,80 @@ class v720_sta(log):
 
     def __on_mjpg_rcv_hnd(self, conn: netsrv_udp, payload: bytes):
         pkg = prot_udp.resp(payload)
+        if pkg is None:
+            return
+
         with self._frame_lst_mtx:
             self._frame_lst.append(pkg._pkg_id)
 
-        if pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_HEAD \
-                or pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_FINISH:
-            self._vframe.put(pkg.payload)
-        elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_BODY:
-                self._vframe.put(pkg.payload)
-        elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_END:
-            self._vframe.put(pkg.payload[:-5])
-            sz = int.from_bytes(pkg.payload[-4:], byteorder='little')
-            self.dbg(f'Receive H264 frame sz: {sz}')
+        # Start of a chunked frame. Clear residual stale buffer first
+        if pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_HEAD:
+            self._vframe.clear()
+            self._vframe.extend(pkg.payload)
 
-            with self._cb_mtx:
-                for cb in self._vframe_cb:
-                    frame = bytearray()
-                    while not self._vframe.empty():
-                        frame.extend(self._vframe.get(False))
-                    cb(self, frame)
+        # Intermediate body chunks. Append only if the frame buffer was initialized.
+        elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_BODY:
+            if len(self._vframe) > 0:
+                self._vframe.extend(pkg.payload)
+
+        # End chunk. Append, parse size metadata, and dispatch image frame
+        elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_END:
+            if len(self._vframe) == 0:
+                return  # Missed HEAD packet, drop orphan END packet
+
+            # Strip 5-byte trailer info from the end packet payload
+            self._vframe.extend(pkg.payload[:-5])
+            sz = int.from_bytes(pkg.payload[-4:], byteorder='little')
+            
+            # Extract raw frame and clear accumulator buffer
+            frame = bytes(self._vframe)
+            self._vframe.clear()
+
+            # Enforce exact JPEG boundaries (SOI = FF D8, EOI = FF D9)
+            soi_idx = frame.find(b'\xff\xd8')
+            eoi_idx = frame.rfind(b'\xff\xd9')
+
+            if soi_idx == -1 or eoi_idx == -1 or eoi_idx <= soi_idx:
+                self.warn(f'[HTTP] Invalid JPEG boundaries in stream. frame_len={len(frame)} size={sz} pkg_id={pkg._pkg_id}')
+            else:
+                valid_frame = frame[soi_idx : eoi_idx + 2]
+
+                if sz != len(valid_frame):
+                    self.dbg(f'[HTTP] Extracted JPEG size mismatch expected={sz}, extracted={len(valid_frame)}')
+
+                # Dispatch valid frame to registered callbacks
+                with self._cb_mtx:
+                    for cb in self._vframe_cb:
+                        try:
+                            cb(self, valid_frame)
+                        except Exception as e:
+                            self.warn(f'Error in video frame callback: {e}')
 
             if not self._first_retrans_send:
                 self.__retransmission_confirm(sent_empty=True)
                 self._first_retrans_send = True
                 self.__rtr_tmr_hnd()
 
+        # Single-packet complete frame
         elif pkg.msg_flag == cmd_udp.PROTOCOL_MSG_FLAG_FINISH:
-            self.dbg(f'Receive single H264 frame')
-            with self._cb_mtx:
-                for cb in self._vframe_cb:
-                    cb(self, pkg.payload)
+            self._vframe.clear()
+            frame = pkg.payload
+            soi_idx = frame.find(b'\xff\xd8')
+            eoi_idx = frame.rfind(b'\xff\xd9')
 
+            if soi_idx != -1 and eoi_idx != -1 and eoi_idx > soi_idx:
+                valid_frame = frame[soi_idx : eoi_idx + 2]
+                with self._cb_mtx:
+                    for cb in self._vframe_cb:
+                        try:
+                            cb(self, valid_frame)
+                        except Exception as e:
+                            self.warn(f'Error in video frame callback: {e}')
+            else:
+                self.warn(f'[HTTP] Single JPEG frame invalid boundary head={frame[:4].hex()}')
+
+        else:
+            self.warn(f'Unknown message flag from camera: msg={pkg.msg_flag}')
 
 def start_srv(_http_port = 80):
 
